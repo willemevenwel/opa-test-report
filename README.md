@@ -2,6 +2,12 @@
 
 This project demonstrates how to write, test, and generate coverage reports for Open Policy Agent (OPA) Rego policies.
 
+## OPA Playground and Coverage Visualization
+
+The [OPA Playground](https://play.openpolicyagent.org/) is an online tool where you can write, test, and experiment with Rego policies directly in your browser. It allows you to run queries, see results, and—by enabling the "Coverage" option in the settings—visually inspect which lines of your policy are covered by your tests. This visual feedback helps you understand your test coverage and identify untested logic.
+
+This project mimics the OPA Playground's coverage visualization, but for your local policies and tests. By running your tests and generating a coverage report, you can view a static HTML report that highlights covered, uncovered, and non-executable lines, similar to the Playground experience, but for your own codebase.
+
 ## Prerequisites
 
 - **Python 3** (for serving the coverage report via HTTP)
