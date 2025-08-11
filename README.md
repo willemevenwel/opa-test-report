@@ -9,6 +9,14 @@ This project demonstrates how to write, test, and generate coverage reports for 
 - **bash** or **cmd** (for running the test script)
 - **macOS or Windows** (see OPA download instructions below)
 
+## Quick Start
+
+1. Run all tests: <code>run_opa_tests.sh</code> or <code>run_opa_tests.bat</code>
+2. Run bundler: <code>bundle_rego.sh</code> or <code>bundle_rego.bat</code>
+3. Compile Docker image: <code>docker build -t opa-test-report .</code>
+4. Run Docker image: <code>docker run -p 8080:80 opa-test-report</code>
+5. Visit: [http://localhost:8080](http://localhost:8080)
+
 ## Setup
 
 ### 1. Download OPA
