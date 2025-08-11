@@ -2,17 +2,11 @@
 
 This project demonstrates how to write, test, and generate coverage reports for Open Policy Agent (OPA) Rego policies.
 
-## OPA Playground and Coverage Visualization
-
-The [OPA Playground](https://play.openpolicyagent.org/) is an online tool where you can write, test, and experiment with Rego policies directly in your browser. It allows you to run queries, see results, and—by enabling the "Coverage" option in the settings—visually inspect which lines of your policy are covered by your tests. This visual feedback helps you understand your test coverage and identify untested logic.
-
-This project mimics the OPA Playground's coverage visualization, but for your local policies and tests. By running your tests and generating a coverage report, you can view a static HTML report that highlights covered, uncovered, and non-executable lines, similar to the Playground experience, but for your own codebase.
-
 ## Prerequisites
 
-- **Python 3** (for serving the coverage report via HTTP)
+- **Docker** (for serving the coverage report via HTTP)
 - **curl** (for downloading OPA)
-- **bash** (for running the test script)
+- **bash** or **cmd** (for running the test script)
 - **macOS or Windows** (see OPA download instructions below)
 
 ## Setup
@@ -39,13 +33,13 @@ Or download manually from: [https://openpolicyagent.org/downloads/latest/](https
 ### 3. Run all OPA tests in the project
 From the project root, run:
 ```sh
-./opa test **.rego
+./run_opa_tests.sh
 ```
 - On Windows, use:
 ```sh
-opa.exe test **.rego
+run_opa_tests.bat
 ```
-This will discover and run all tests in all `.rego` files in the current directory and subdirectories.
+This will discover and run all tests in all `.rego` files in the current directory and subdirectories. And save the coverage report as `coverage.json`.
 
 ### 4. Run OPA tests and generate coverage for a single policy and test
 ```sh
@@ -54,11 +48,28 @@ This will discover and run all tests in all `.rego` files in the current directo
 - On Windows, you may need to use Git Bash or WSL to run the shell script, or adapt the script for PowerShell.
 - This script runs your tests and outputs a coverage report in `coverage.json`.
 
-### 5. Serve the coverage report locally
+### 5. Serve the coverage report using a Docker nginx container
+
+- Run the bundle package script
+- this creates the rego_bundle.zip with all your rego policies the data and the report html.
+
 ```sh
-python3 -m http.server 8000
+./bundle_rego.sh
 ```
-- This will start a local server at [http://localhost:8000](http://localhost:8000)
+or on windows:
+```sh
+bundle_rego.bat 
+```
+
+- Compile the docker image: 
+```sh
+docker build -t opa-test-report
+```
+- Run the docker image:
+- This will start a local server at [http://localhost:8080](http://localhost:8080)
+```sh
+docker run -p 8080:80 opa-test-report
+```
 
 ### 6. View the coverage report
 - Open your browser and go to:
@@ -89,5 +100,3 @@ This will free up port 8000 so you can restart the server.
 ---
 
 Happy policy testing!
-
-
