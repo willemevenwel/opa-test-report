@@ -59,9 +59,64 @@
       ],
       "covered_lines": 9,
       "coverage": 100
+    },
+    "policy_two.rego": {
+      "covered": [
+        {
+          "start": {
+            "row": 3
+          },
+          "end": {
+            "row": 3
+          }
+        },
+        {
+          "start": {
+            "row": 5
+          },
+          "end": {
+            "row": 6
+          }
+        }
+      ],
+      "not_covered": [
+        {
+          "start": {
+            "row": 9
+          },
+          "end": {
+            "row": 10
+          }
+        }
+      ],
+      "covered_lines": 3,
+      "not_covered_lines": 2,
+      "coverage": 60
+    },
+    "policy_two_test.rego": {
+      "covered": [
+        {
+          "start": {
+            "row": 3
+          },
+          "end": {
+            "row": 5
+          }
+        },
+        {
+          "start": {
+            "row": 8
+          },
+          "end": {
+            "row": 10
+          }
+        }
+      ],
+      "covered_lines": 6,
+      "coverage": 100
     }
   },
-  "covered_lines": 14,
-  "not_covered_lines": 0,
-  "coverage": 100
+  "covered_lines": 23,
+  "not_covered_lines": 2,
+  "coverage": 92
 }

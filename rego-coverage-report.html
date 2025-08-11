@@ -104,31 +104,67 @@
   /* coverage highlights (applies to code cell td) */
   tr.covered td.code { background: var(--covered) !important; }
   tr.missed td.code { background: var(--missed) !important; }
+  tr.ignored td.code { background: #e6f0ff !important; }
 
-  /* small responsive tweaks */
-  @media (max-width:720px) {
-    .ln { display:none; }
+  /* summary table */
+  .summary-table {
+    border-collapse: collapse;
+    margin-bottom: 12px;
+    background: #fff;
   }
+  .summary-table td {
+    border: 1px solid #e0e0e0;
+    padding: 6px 12px;
+    font-size: 15px;
+  }
+  .summary-table tr {
+    border-bottom: 1px solid #e0e0e0;
+  }
+  .legend {
+    margin-bottom: 18px;
+    font-size: 14px;
+    display: flex;
+    gap: 24px;
+    align-items: center;
+  }
+  .legend-swatch {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+    margin-right: 6px;
+    vertical-align: middle;
+    border: 1px solid #bbb;
+  }
+  .covered-swatch { background: #e6ffe6; border-color: #b2e6b2; }
+  .uncovered-swatch { background: #ffe6e6; border-color: #e6b2b2; }
+  .ignored-swatch { background: #e6f0ff; border-color: #b2cbe6; }
 </style>
 </head>
 <body>
 
-<h1>Offline Rego Viewer (no external libs)</h1>
-<p class="help">Open with a local server and pass query params: <code>?file=policy.rego&amp;coverage=coverage.json</code></p>
+<h1>Offline Rego Unit Test Coverage Viewer</h1>
+<p class="help">Instructions: open with a local server and pass query params: <code>?file=policy.rego&amp;coverage=coverage.json</code>. Skipping the <code>file</code> query param forces load of all policies/tests.</p>
 
 <div class="controls">
-  <div class="fileinfo" style="flex:1">
-    <div><strong>Loaded file:</strong> <span id="fileName">—</span></div>
-    <div style="margin-left:8px; color:var(--muted)"><strong>Coverage:</strong> <span id="covName">—</span></div>
-  </div>
-
-  <div style="display:flex; gap:8px;">
-    <button id="reloadBtn">Reload</button>
-    <button id="copyBtn">Copy</button>
-    <button id="toggleCoverBtn">Toggle coverage</button>
-  </div>
+  <table class="summary-table" style="margin-bottom: 12px;">
+    <tr>
+      <td style="padding-right: 24px;"><strong>Loaded file:</strong></td>
+      <td id="fileName">—</td>
+      <td style="padding-right: 24px;"><strong>Total coverage:</strong></td>
+      <td id="covName">—</td>
+      <td style="padding-right: 24px;"><strong>Covered lines:</strong></td>
+      <td id="mainCoveredLines">—</td>
+      <td style="padding-right: 24px;"><strong>Not covered lines:</strong></td>
+      <td id="mainNotCoveredLines">—</td>
+    </tr>
+  </table>
 </div>
-
+<div class="legend">
+  <span><span class="legend-swatch covered-swatch"></span>Covered line</span>
+  <span><span class="legend-swatch uncovered-swatch"></span>Not covered line</span>
+  <span><span class="legend-swatch ignored-swatch"></span>Non-executable/ignored line</span>
+</div>
 <div class="viewer" id="viewer" style="display:none;">
   <div class="toolbar" id="toolbar">
     <div style="flex:1"></div>
@@ -157,18 +193,228 @@ function escapeHtml(s){
   });
 }
 
-/* ---------- Simple Rego tokenizer (regex-based) ----------
-   token types handled (order matters):
-   - block comments (/* ... * /)
-   - line comments (//...)
-   - strings "..." with escapes
-   - numbers
-   - keywords (package import default else if then true false null)
-   - operators
-   - identifiers
-   - punctuation/whitespace
-   This isn't a full parser but good enough for readable highlighting.
-*/
+// New: List all policy files (not _test.rego) from coverage.json
+async function listPolicyFiles(coveragePath) {
+  try {
+    const covText = await fetchTextOrThrow(coveragePath);
+    const data = JSON.parse(covText);
+    const files = data.files || {};
+    // Only include .rego files that do NOT end with _test.rego
+    return Object.keys(files).filter(f => f.endsWith('.rego') && !f.endsWith('_test.rego'));
+  } catch (e) {
+    alert('Could not load coverage.json: ' + e.message);
+    return [];
+  }
+}
+
+// New: UI for selecting and displaying all policy files
+async function showPolicyFileSelector(coveragePath) {
+  const files = await listPolicyFiles(coveragePath);
+  const container = document.createElement('div');
+  container.style.margin = '16px 0';
+  container.innerHTML = '<strong>Policy file coverage:</strong>';
+  // Insert before .viewer
+  const viewer = document.getElementById('viewer');
+  viewer.parentNode.insertBefore(container, viewer);
+
+  // Load coverage.json once
+  let covText = '';
+  let covData = {};
+  try {
+    covText = await fetchTextOrThrow(coveragePath);
+    covData = JSON.parse(covText);
+  } catch (e) {}
+
+  // Use root 'coverage' field for combined coverage
+  // If the value is > 1, assume it's already a percentage
+  let avgCoveragePct = '—';
+  let coveredLines = 0;
+  let notCoveredLines = 0;
+  if (covData.coverage !== undefined) {
+    avgCoveragePct = covData.coverage > 1 ? covData.coverage.toFixed(0) + '%' : (covData.coverage * 100).toFixed(0) + '%';
+  }
+  if (covData.covered_lines !== undefined) coveredLines = covData.covered_lines;
+  if (covData.not_covered_lines !== undefined) notCoveredLines = covData.not_covered_lines;
+  document.getElementById('fileName').textContent = 'All';
+  let covNameElem = document.getElementById('covName');
+  covNameElem.innerHTML = avgCoveragePct +
+    (coveragePath ?
+      ' <span style="font-size:13px;color:var(--muted);">(<a href="' + encodeURI(coveragePath) + '" target="_blank" style="color:var(--muted);text-decoration:underline;">' + basename(coveragePath) + '</a>)</span>'
+      : '');
+  document.getElementById('mainCoveredLines').textContent = coveredLines;
+  document.getElementById('mainNotCoveredLines').textContent = notCoveredLines;
+
+  // For each file, render its code and coverage below the selector
+  for (const f of files) {
+    // Collapsible container for each policy
+    const collapsible = document.createElement('div');
+    collapsible.style.marginBottom = '24px';
+    collapsible.style.border = '1px solid #eee';
+    collapsible.style.borderRadius = '6px';
+    collapsible.style.background = '#fafbfc';
+
+    // Header row with collapse/expand button, file name, and toggle button
+    const headerRow = document.createElement('div');
+    headerRow.style.display = 'flex';
+    headerRow.style.alignItems = 'center';
+    headerRow.style.margin = '0';
+    headerRow.style.padding = '10px 12px';
+    headerRow.style.cursor = 'pointer';
+    headerRow.style.userSelect = 'none';
+
+    // Collapse/expand icon
+    const collapseIcon = document.createElement('span');
+    collapseIcon.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2"/></svg>';
+    collapseIcon.style.marginRight = '10px';
+    headerRow.appendChild(collapseIcon);
+
+    // File header
+    const fileHeader = document.createElement('h2');
+    fileHeader.textContent = basename(f);
+    fileHeader.style.margin = '0';
+    fileHeader.style.flex = '1';
+    fileHeader.style.fontSize = '16px';
+    headerRow.appendChild(fileHeader);
+
+    // Toggle button for coverage highlight (eye icon)
+    const toggleBtn = document.createElement('button');
+    toggleBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Toggle coverage highlight on and off</title><path d="M10 4C5.45455 4 2.27273 8.18182 2.27273 10C2.27273 11.8182 5.45455 16 10 16C14.5455 16 17.7273 11.8182 17.7273 10C17.7273 8.18182 14.5455 4 10 4Z" stroke="#888" stroke-width="1.5"/><circle cx="10" cy="10" r="3" stroke="#888" stroke-width="1.5"/></svg>';
+    toggleBtn.title = 'Toggle coverage highlight on and off';
+    toggleBtn.setAttribute('aria-label', 'Toggle coverage highlight on and off');
+    toggleBtn.style.background = 'none';
+    toggleBtn.style.border = 'none';
+    toggleBtn.style.cursor = 'pointer';
+    toggleBtn.style.padding = '0 0 0 8px';
+    toggleBtn.style.display = 'flex';
+    toggleBtn.style.alignItems = 'center';
+    toggleBtn.style.height = '28px';
+    toggleBtn.style.marginLeft = '8px';
+    headerRow.appendChild(toggleBtn);
+
+    // Coverage percentage for this file from its 'coverage' field in coverage.json
+    let pct = '';
+    let fileCoveredLines = 0;
+    let fileNotCoveredLines = 0;
+    if (covData.files) {
+      // Try to match by exact key, or by basename
+      let fileEntry = covData.files[f];
+      if (!fileEntry) {
+        // Try to find by basename
+        const base = basename(f);
+        for (const key of Object.keys(covData.files)) {
+          if (basename(key) === base) {
+            fileEntry = covData.files[key];
+            break;
+          }
+        }
+      }
+      if (fileEntry && fileEntry.coverage !== undefined) {
+        pct = fileEntry.coverage > 1 ? fileEntry.coverage.toFixed(0) + '%' : (fileEntry.coverage * 100).toFixed(0) + '%';
+      }
+      fileCoveredLines = fileEntry && fileEntry.covered_lines !== undefined ? fileEntry.covered_lines : 0;
+      fileNotCoveredLines = fileEntry && fileEntry.not_covered_lines !== undefined ? fileEntry.not_covered_lines : 0;
+    }
+    const pctSpan = document.createElement('span');
+    pctSpan.textContent = pct;
+    pctSpan.title = basename(f) + "'s coverage";
+    pctSpan.style.marginLeft = '8px';
+    pctSpan.style.color = 'var(--muted)';
+    pctSpan.style.fontSize = '14px';
+    headerRow.appendChild(pctSpan);
+    // Add summary for this policy
+    const fileSummary = document.createElement('span');
+    fileSummary.innerHTML = `<span style='margin-left:12px;'><strong>Covered lines:</strong> ${fileCoveredLines}</span> <span style='margin-left:12px;'><strong>Not covered lines:</strong> ${fileNotCoveredLines}</span>`;
+    fileSummary.style.color = 'var(--muted)';
+    fileSummary.style.fontSize = '13px';
+    headerRow.appendChild(fileSummary);
+
+    collapsible.appendChild(headerRow);
+
+    // Code viewer
+    const codeWrap = document.createElement('div');
+    codeWrap.className = 'code-wrap';
+    codeWrap.style.margin = '0';
+    const codeTable = document.createElement('table');
+    codeTable.className = 'code-table';
+    codeTable.innerHTML = '<tbody></tbody>';
+    codeWrap.appendChild(codeTable);
+    collapsible.appendChild(codeWrap);
+
+    container.appendChild(collapsible);
+
+    // Fetch code and coverage, then render
+    try {
+      const codeText = await fetchTextOrThrow(f);
+      const totalLines = codeText.split(/\r?\n/).length;
+      const coverageData = parseCoverageJson(covText, f, totalLines);
+      // Render code table
+      const tbody = codeTable.querySelector('tbody');
+      tbody.innerHTML = '';
+      const lines = codeText.split(/\r?\n/);
+      for(let i=0;i<lines.length;i++){
+        const lineNumber = i+1;
+        const tr = document.createElement('tr');
+        // Determine if this line should be ignored (non-executable)
+        const trimmed = lines[i].trim();
+        const isIgnored =
+          trimmed === '' ||
+          trimmed === '}' ||
+          trimmed.startsWith('package ');
+        if (isIgnored) {
+          tr.classList.add('ignored');
+        } else if(coverageData){
+          if(coverageData.covered && coverageData.covered.has(lineNumber)) tr.classList.add('covered');
+          else if(coverageData.missed && coverageData.missed.has(lineNumber)) tr.classList.add('missed');
+        }
+        const tdLn = document.createElement('td');
+        tdLn.className = 'ln';
+        tdLn.textContent = lineNumber;
+        const tdCode = document.createElement('td');
+        tdCode.className = 'code';
+        tdCode.innerHTML = tokenizeRego(lines[i] || '');
+        tr.appendChild(tdLn);
+        tr.appendChild(tdCode);
+        tbody.appendChild(tr);
+      }
+      // Toggle coverage highlight functionality
+      let highlightOn = true;
+      toggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        highlightOn = !highlightOn;
+        const rows = codeTable.querySelectorAll('tbody tr');
+        rows.forEach(r => {
+          if(highlightOn){
+            // reapply classes from coverageData
+            const idx = Array.from(rows).indexOf(r) + 1;
+            r.classList.remove('covered','missed');
+            if(coverageData.covered && coverageData.covered.has(idx)) r.classList.add('covered');
+            else if(coverageData.missed && coverageData.missed.has(idx)) r.classList.add('missed');
+          } else {
+            r.classList.remove('covered','missed');
+          }
+        });
+      });
+      // Collapse/expand functionality
+      let collapsed = false;
+      headerRow.addEventListener('click', () => {
+        collapsed = !collapsed;
+        codeWrap.style.display = collapsed ? 'none' : '';
+        toggleBtn.style.display = collapsed ? 'none' : 'flex';
+        pctSpan.style.display = 'inline'; // Always show percentage
+        collapseIcon.innerHTML = collapsed
+          ? '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,10 8,6 12,10" fill="none" stroke="#888" stroke-width="2"/></svg>'
+          : '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2"/></svg>';
+      });
+    } catch (e) {
+      const errMsg = document.createElement('div');
+      errMsg.style.color = 'red';
+      errMsg.textContent = 'Error loading file: ' + f + ' — ' + e.message;
+      collapsible.appendChild(errMsg);
+    }
+  }
+}
+
+// FIX: Define KEYWORDS and BUILTINS before tokenizeRego
 const KEYWORDS = new Set(['package','import','default','else','if','then','true','false','null','not','with']);
 const BUILTINS = new Set(['input','data','trace','http']); // small sample
 
@@ -270,6 +516,267 @@ function renderCodeTable(codeText, coverageData){
   }
 }
 
+// --- Shared function to render a single policy file as a collapsible card ---
+async function renderPolicyCard(container, f, covData, covText) {
+  // Collapsible container for each policy
+  const collapsible = document.createElement('div');
+  collapsible.style.marginBottom = '24px';
+  collapsible.style.border = '1px solid #eee';
+  collapsible.style.borderRadius = '6px';
+  collapsible.style.background = '#fafbfc';
+
+  // Header row with collapse/expand button, file name, and toggle button
+  const headerRow = document.createElement('div');
+  headerRow.style.display = 'flex';
+  headerRow.style.alignItems = 'center';
+  headerRow.style.margin = '0';
+  headerRow.style.padding = '10px 12px';
+  headerRow.style.cursor = 'pointer';
+  headerRow.style.userSelect = 'none';
+
+  // Collapse/expand icon
+  const collapseIcon = document.createElement('span');
+  collapseIcon.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2"/></svg>';
+  collapseIcon.style.marginRight = '10px';
+  headerRow.appendChild(collapseIcon);
+
+  // File header
+  const fileHeader = document.createElement('h2');
+  fileHeader.textContent = basename(f);
+  fileHeader.style.margin = '0';
+  fileHeader.style.flex = '1';
+  fileHeader.style.fontSize = '16px';
+  headerRow.appendChild(fileHeader);
+
+  // Toggle button for coverage highlight (eye icon)
+  const toggleBtn = document.createElement('button');
+  toggleBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Toggle coverage highlight on and off</title><path d="M10 4C5.45455 4 2.27273 8.18182 2.27273 10C2.27273 11.8182 5.45455 16 10 16C14.5455 16 17.7273 11.8182 17.7273 10C17.7273 8.18182 14.5455 4 10 4Z" stroke="#888" stroke-width="1.5"/><circle cx="10" cy="10" r="3" stroke="#888" stroke-width="1.5"/></svg>';
+  toggleBtn.title = 'Toggle coverage highlight on and off';
+  toggleBtn.setAttribute('aria-label', 'Toggle coverage highlight on and off');
+  toggleBtn.style.background = 'none';
+  toggleBtn.style.border = 'none';
+  toggleBtn.style.cursor = 'pointer';
+  toggleBtn.style.padding = '0 0 0 8px';
+  toggleBtn.style.display = 'flex';
+  toggleBtn.style.alignItems = 'center';
+  toggleBtn.style.height = '28px';
+  toggleBtn.style.marginLeft = '8px';
+  headerRow.appendChild(toggleBtn);
+
+  // Coverage percentage for this file from its 'coverage' field in coverage.json
+  let pct = '';
+  let fileCoveredLines = 0;
+  let fileNotCoveredLines = 0;
+  if (covData.files) {
+    // Try to match by exact key, or by basename
+    let fileEntry = covData.files[f];
+    if (!fileEntry) {
+      // Try to find by basename
+      const base = basename(f);
+      for (const key of Object.keys(covData.files)) {
+        if (basename(key) === base) {
+          fileEntry = covData.files[key];
+          break;
+        }
+      }
+    }
+    if (fileEntry && fileEntry.coverage !== undefined) {
+      pct = fileEntry.coverage > 1 ? fileEntry.coverage.toFixed(0) + '%' : (fileEntry.coverage * 100).toFixed(0) + '%';
+    }
+    fileCoveredLines = fileEntry && fileEntry.covered_lines !== undefined ? fileEntry.covered_lines : 0;
+    fileNotCoveredLines = fileEntry && fileEntry.not_covered_lines !== undefined ? fileEntry.not_covered_lines : 0;
+  }
+  const pctSpan = document.createElement('span');
+  pctSpan.textContent = pct;
+  pctSpan.title = basename(f) + "'s coverage";
+  pctSpan.style.marginLeft = '8px';
+  pctSpan.style.color = 'var(--muted)';
+  pctSpan.style.fontSize = '14px';
+  headerRow.appendChild(pctSpan);
+  // Add summary for this policy
+  const fileSummary = document.createElement('span');
+  fileSummary.innerHTML = `<span style='margin-left:12px;'><strong>Covered lines:</strong> ${fileCoveredLines}</span> <span style='margin-left:12px;'><strong>Not covered lines:</strong> ${fileNotCoveredLines}</span>`;
+  fileSummary.style.color = 'var(--muted)';
+  fileSummary.style.fontSize = '13px';
+  headerRow.appendChild(fileSummary);
+
+  collapsible.appendChild(headerRow);
+
+  // Code viewer
+  const codeWrap = document.createElement('div');
+  codeWrap.className = 'code-wrap';
+  codeWrap.style.margin = '0';
+  const codeTable = document.createElement('table');
+  codeTable.className = 'code-table';
+  codeTable.innerHTML = '<tbody></tbody>';
+  codeWrap.appendChild(codeTable);
+  collapsible.appendChild(codeWrap);
+
+  container.appendChild(collapsible);
+
+  // Fetch code and coverage, then render
+  try {
+    const codeText = await fetchTextOrThrow(f);
+    const totalLines = codeText.split(/\r?\n/).length;
+    const coverageData = parseCoverageJson(covText, f, totalLines);
+    // Render code table
+    const tbody = codeTable.querySelector('tbody');
+    tbody.innerHTML = '';
+    const lines = codeText.split(/\r?\n/);
+    for(let i=0;i<lines.length;i++){
+      const lineNumber = i+1;
+      const tr = document.createElement('tr');
+      // Determine if this line should be ignored (non-executable)
+      const trimmed = lines[i].trim();
+      const isIgnored =
+        trimmed === '' ||
+        trimmed === '}' ||
+        trimmed.startsWith('package ');
+      if (isIgnored) {
+        tr.classList.add('ignored');
+      } else if(coverageData){
+        if(coverageData.covered && coverageData.covered.has(lineNumber)) tr.classList.add('covered');
+        else if(coverageData.missed && coverageData.missed.has(lineNumber)) tr.classList.add('missed');
+      }
+      const tdLn = document.createElement('td');
+      tdLn.className = 'ln';
+      tdLn.textContent = lineNumber;
+      const tdCode = document.createElement('td');
+      tdCode.className = 'code';
+      tdCode.innerHTML = tokenizeRego(lines[i] || '');
+      tr.appendChild(tdLn);
+      tr.appendChild(tdCode);
+      tbody.appendChild(tr);
+    }
+    // Toggle coverage highlight functionality
+    let highlightOn = true;
+    toggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      highlightOn = !highlightOn;
+      const rows = codeTable.querySelectorAll('tbody tr');
+      rows.forEach(r => {
+        if(highlightOn){
+          // reapply classes from coverageData
+          const idx = Array.from(rows).indexOf(r) + 1;
+          r.classList.remove('covered','missed');
+          if(coverageData.covered && coverageData.covered.has(idx)) r.classList.add('covered');
+          else if(coverageData.missed && coverageData.missed.has(idx)) r.classList.add('missed');
+        } else {
+          r.classList.remove('covered','missed');
+        }
+      });
+    });
+    // Collapse/expand functionality
+    let collapsed = false;
+    headerRow.addEventListener('click', () => {
+      collapsed = !collapsed;
+      codeWrap.style.display = collapsed ? 'none' : '';
+      toggleBtn.style.display = collapsed ? 'none' : 'flex';
+      pctSpan.style.display = 'inline'; // Always show percentage
+      collapseIcon.innerHTML = collapsed
+        ? '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,10 8,6 12,10" fill="none" stroke="#888" stroke-width="2"/></svg>'
+        : '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2"/></svg>';
+    });
+  } catch (e) {
+    const errMsg = document.createElement('div');
+    errMsg.style.color = 'red';
+    errMsg.textContent = 'Error loading file: ' + f + ' — ' + e.message;
+    collapsible.appendChild(errMsg);
+  }
+}
+
+// --- Modified loadAndShow to use the shared card renderer ---
+async function loadAndShow(fileParam, coverageParam){
+  document.getElementById('fileName').textContent = fileParam || '—';
+  let covText = '';
+  let covData = {};
+  if(coverageParam){
+    try {
+      covText = await fetchTextOrThrow(coverageParam);
+      covData = JSON.parse(covText);
+    } catch (e) {}
+  }
+  // Coverage percentage for this file from its 'coverage' field in coverage.json
+  let pct = '';
+  let fileCoveredLines = 0;
+  let fileNotCoveredLines = 0;
+  if (covData.files) {
+    // Try to match by exact key, or by basename
+    let fileEntry = covData.files[fileParam];
+    if (!fileEntry) {
+      // Try to find by basename
+      const base = basename(fileParam);
+      for (const key of Object.keys(covData.files)) {
+        if (basename(key) === base) {
+          fileEntry = covData.files[key];
+          break;
+        }
+      }
+    }
+    if (fileEntry && fileEntry.coverage !== undefined) {
+      pct = fileEntry.coverage > 1 ? fileEntry.coverage.toFixed(0) + '%' : (fileEntry.coverage * 100).toFixed(0) + '%';
+    }
+    fileCoveredLines = fileEntry && fileEntry.covered_lines !== undefined ? fileEntry.covered_lines : 0;
+    fileNotCoveredLines = fileEntry && fileEntry.not_covered_lines !== undefined ? fileEntry.not_covered_lines : 0;
+  }
+  // Add link to coverage.json next to coverage percentage
+  let covNameElem = document.getElementById('covName');
+  covNameElem.innerHTML = (pct || (coverageParam || '—')) +
+    (coverageParam ?
+      ' <span style="font-size:13px;color:var(--muted);">(<a href="' + encodeURI(coverageParam) + '" target="_blank" style="color:var(--muted);text-decoration:underline;">' + basename(coverageParam) + '</a>)</span>'
+      : '');
+
+  // If a file parameter is present, show only that file's coverage
+  if (fileParam) {
+    // Find the file entry in coverage.json
+    let fileEntry = null;
+    if (covData.files) {
+      fileEntry = covData.files[fileParam];
+      if (!fileEntry) {
+        // Try to find by basename
+        const base = basename(fileParam);
+        for (const key of Object.keys(covData.files)) {
+          if (basename(key) === base) {
+            fileEntry = covData.files[key];
+            break;
+          }
+        }
+      }
+    }
+    // Use fileEntry's coverage, covered_lines, not_covered_lines for the summary table
+    let fileCoverage = '—';
+    let fileCoveredLines = 0;
+    let fileNotCoveredLines = 0;
+    if (fileEntry) {
+      if (fileEntry.coverage !== undefined) {
+        fileCoverage = fileEntry.coverage > 1 ? fileEntry.coverage.toFixed(0) + '%' : (fileEntry.coverage * 100).toFixed(0) + '%';
+      }
+      fileCoveredLines = fileEntry.covered_lines !== undefined ? fileEntry.covered_lines : 0;
+      fileNotCoveredLines = fileEntry.not_covered_lines !== undefined ? fileEntry.not_covered_lines : 0;
+    }
+    document.getElementById('fileName').textContent = basename(fileParam);
+    document.getElementById('covName').textContent = fileCoverage;
+    document.getElementById('mainCoveredLines').textContent = fileCoveredLines;
+    document.getElementById('mainNotCoveredLines').textContent = fileNotCoveredLines;
+
+    // Use the shared card renderer for a single file
+    const viewer = document.getElementById('viewer');
+    viewer.innerHTML = '';
+    await renderPolicyCard(viewer, fileParam, covData, covText);
+    viewer.style.display = 'block';
+  } else {
+    // Use the shared card renderer for all files (if coverageParam is present)
+    const viewer = document.getElementById('viewer');
+    viewer.innerHTML = '';
+    if (coverageParam) {
+      showPolicyFileSelector(coverageParam);
+      viewer.style.display = 'none';
+    } else {
+      viewer.style.display = 'none';
+    }
+  }
+}
+
 /* ---------- File loading & orchestration ---------- */
 
 async function fetchTextOrThrow(path){
@@ -280,72 +787,23 @@ async function fetchTextOrThrow(path){
 
 let currentCodeText = '';
 let currentCoverage = null;
-let coverVisible = true;
-
-async function loadAndShow(fileParam, coverageParam){
-  document.getElementById('fileName').textContent = fileParam || '—';
-  document.getElementById('covName').textContent = coverageParam || '—';
-  try {
-    const codeText = await fetchTextOrThrow(fileParam);
-    currentCodeText = codeText;
-    let coverageData = null;
-    if(coverageParam){
-      const covText = await fetchTextOrThrow(coverageParam);
-      // parse with total lines
-      const totalLines = codeText.split(/\r?\n/).length;
-      coverageData = parseCoverageJson(covText, fileParam, totalLines);
-      currentCoverage = coverageData;
-    } else {
-      currentCoverage = null;
-    }
-    renderCodeTable(codeText, currentCoverage);
-    document.getElementById('viewer').style.display = 'block';
-  } catch(err){
-    alert('Error: ' + err.message + '\n\nMake sure you are serving the files over HTTP (e.g. python -m http.server) and the paths in ?file= and ?coverage= are correct and in same folder.');
-    console.error(err);
-  }
-}
 
 /* ---------- UI wiring ---------- */
-document.getElementById('reloadBtn').addEventListener('click', () => {
-  const f = getQueryParam('file');
-  const c = getQueryParam('coverage');
-  if(f) loadAndShow(f,c);
-});
-
-document.getElementById('copyBtn').addEventListener('click', () => {
-  if(!currentCodeText) return;
-  navigator.clipboard.writeText(currentCodeText).then(()=>{
-    const b = document.getElementById('copyBtn');
-    const old = b.textContent;
-    b.textContent = 'Copied!';
-    setTimeout(()=>b.textContent = old, 1200);
-  }).catch(e=>{
-    alert('Copy failed: ' + e.message);
-  });
-});
-
-document.getElementById('toggleCoverBtn').addEventListener('click', () => {
-  coverVisible = !coverVisible;
-  const rows = document.querySelectorAll('#codeTable tbody tr');
-  rows.forEach(r => {
-    if(coverVisible){
-      // reapply classes from currentCoverage
-      r.classList.remove('covered','missed');
-    } else {
-      // hide coverage: remove coverage classes
-      r.classList.remove('covered','missed');
-    }
-  });
-  // if toggling on, re-render to reapply coverage
-  if(coverVisible && currentCoverage) renderCodeTable(currentCodeText, currentCoverage);
-});
+// Removed event listeners for reload, copy, and toggle coverage buttons
 
 /* ---------- Auto-start ---------- */
 const fileParam = getQueryParam('file');
 const coverageParam = getQueryParam('coverage');
 if(fileParam){
+  // Only show the requested file
   loadAndShow(fileParam, coverageParam);
+  document.getElementById('viewer').style.display = 'block';
+} else if(coverageParam){
+  // If only coverage is provided, show all policy files with coverage
+  showPolicyFileSelector(coverageParam);
+  document.getElementById('fileName').textContent = 'All';
+  document.getElementById('covName').textContent = '—';
+  document.getElementById('viewer').style.display = 'none';
 } else {
   // no file specified — show explanation
   document.getElementById('fileName').textContent = 'none (use ?file=...)';
