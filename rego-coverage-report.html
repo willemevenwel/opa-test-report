@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Offline Rego Viewer (no external libs)</title>
+<style>
+  :root{
+    --bg:#f7f7f7;
+    --card:#ffffff;
+    --muted:#888;
+    --ln-bg:#f0f0f0;
+    --covered:#d8f6d8;
+    --missed:#f7d8d8;
+    --code-font: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Courier New", monospace;
+  }
+
+  body{
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    margin: 20px;
+    background: var(--bg);
+    color: #222;
+  }
+
+  h1{ margin:0 0 8px 0; font-size:18px; }
+  p.help{ margin:6px 0 0 0; color:var(--muted); font-size:13px; }
+
+  .controls{
+    margin-top:12px;
+    display:flex;
+    gap:8px;
+    align-items:center;
+  }
+
+  .viewer {
+    margin-top:18px;
+    background:var(--card);
+    border-radius:8px;
+    box-shadow: 0 4px 14px rgba(12,20,30,0.06);
+    padding:14px;
+  }
+
+  .toolbar{
+    display:flex;
+    gap:8px;
+    justify-content:flex-end;
+    margin-bottom:8px;
+  }
+
+  button {
+    border:1px solid #ddd;
+    background:#fff;
+    padding:6px 10px;
+    border-radius:6px;
+    cursor:pointer;
+    font-size:13px;
+  }
+  button:active{ transform:translateY(1px); }
+
+  .fileinfo {
+    display:flex;
+    gap:12px;
+    align-items:center;
+  }
+
+  /* code table */
+  .code-table {
+    width:100%;
+    border-collapse:collapse;
+    font-family: var(--code-font);
+    font-size:13px;
+    line-height:1.45;
+    overflow:auto;
+  }
+  .code-wrap { display:block; width:100%; overflow:auto; }
+
+  .code-table td { vertical-align:top; padding:0; }
+  .ln {
+    width:60px;
+    text-align:right;
+    padding:8px 12px;
+    background:var(--ln-bg);
+    color:var(--muted);
+    border-right:1px solid #e6e6e6;
+    user-select: none;
+    font-size:12px;
+  }
+  .code {
+    padding:8px 12px;
+    white-space:pre;
+    word-break:normal;
+  }
+
+  /* token colors (simple) */
+  .tok-comment { color:#6a737d; font-style:italic; }
+  .tok-keyword { color:#000080; font-weight:600; }
+  .tok-string { color:#008000; }
+  .tok-number { color:#0b7fbf; }
+  .tok-operator { color:#aa22ff; }
+  .tok-builtin { color:#2b91af; }
+  .tok-variable { color:#333; }
+  .tok-punct { color:#444; }
+
+  /* coverage highlights (applies to code cell td) */
+  tr.covered td.code { background: var(--covered) !important; }
+  tr.missed td.code { background: var(--missed) !important; }
+
+  /* small responsive tweaks */
+  @media (max-width:720px) {
+    .ln { display:none; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Offline Rego Viewer (no external libs)</h1>
+<p class="help">Open with a local server and pass query params: <code>?file=policy.rego&amp;coverage=coverage.json</code></p>
+
+<div class="controls">
+  <div class="fileinfo" style="flex:1">
+    <div><strong>Loaded file:</strong> <span id="fileName">—</span></div>
+    <div style="margin-left:8px; color:var(--muted)"><strong>Coverage:</strong> <span id="covName">—</span></div>
+  </div>
+
+  <div style="display:flex; gap:8px;">
+    <button id="reloadBtn">Reload</button>
+    <button id="copyBtn">Copy</button>
+    <button id="toggleCoverBtn">Toggle coverage</button>
+  </div>
+</div>
+
+<div class="viewer" id="viewer" style="display:none;">
+  <div class="toolbar" id="toolbar">
+    <div style="flex:1"></div>
+    <div style="color:var(--muted); font-size:13px">Note: this viewer highlights coverage ranges from the JSON format you provided.</div>
+  </div>
+
+  <div class="code-wrap" id="codeWrap">
+    <table class="code-table" id="codeTable"><tbody></tbody></table>
+  </div>
+</div>
+
+<script>
+/* ---------- Helpers ---------- */
+
+function getQueryParam(name){
+  return new URLSearchParams(window.location.search).get(name);
+}
+function basename(path){
+  if(!path) return path;
+  const parts = path.split('/');
+  return parts[parts.length-1];
+}
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g, function(c){
+    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]);
+  });
+}
+
+/* ---------- Simple Rego tokenizer (regex-based) ----------
+   token types handled (order matters):
+   - block comments (/* ... * /)
+   - line comments (//...)
+   - strings "..." with escapes
+   - numbers
+   - keywords (package import default else if then true false null)
+   - operators
+   - identifiers
+   - punctuation/whitespace
+   This isn't a full parser but good enough for readable highlighting.
+*/
+const KEYWORDS = new Set(['package','import','default','else','if','then','true','false','null','not','with']);
+const BUILTINS = new Set(['input','data','trace','http']); // small sample
+
+function tokenizeRego(code){
+  // global regex with alternation. 's' flag isn't universally supported in older browsers -> use [\s\S]
+  const tokenRe = /\/\*[\s\S]*?\*\/|\/\/.*|"(?:\\.|[^"\\])*"|\b\d+(\.\d+)?\b|\b[A-Za-z_][A-Za-z0-9_]*\b|==|!=|<=|>=|&&|\|\||[=<>+\-*/%]|[{}()[\].,:]/g;
+  let out = '';
+  let lastIndex = 0;
+  let m;
+  while((m = tokenRe.exec(code)) !== null){
+    // add plain text between tokens (should be none because regex covers many things, but keep safe)
+    if(m.index > lastIndex){
+      out += escapeHtml(code.substring(lastIndex, m.index));
+    }
+    const tok = m[0];
+    let cls = '';
+    if(/^\/\*/.test(tok) || /^\/\//.test(tok)){
+      cls = 'tok-comment';
+    } else if(/^"/.test(tok)){
+      cls = 'tok-string';
+    } else if(/^\d/.test(tok)){
+      cls = 'tok-number';
+    } else if(/^[A-Za-z_]/.test(tok)){
+      if(KEYWORDS.has(tok)) cls = 'tok-keyword';
+      else if(BUILTINS.has(tok)) cls = 'tok-builtin';
+      else cls = 'tok-variable';
+    } else if(/^(==|!=|<=|>=|&&|\|\||[=<>+\-*/%])$/.test(tok)){
+      cls = 'tok-operator';
+    } else {
+      cls = 'tok-punct';
+    }
+    out += '<span class="'+cls+'">' + escapeHtml(tok) + '</span>';
+    lastIndex = tokenRe.lastIndex;
+  }
+  if(lastIndex < code.length){
+    out += escapeHtml(code.substring(lastIndex));
+  }
+  return out;
+}
+
+/* ---------- Coverage parsing: expand ranges like {start:{row:3},end:{row:5}} to line numbers ---------- */
+function expandRangesToSet(ranges){
+  const s = new Set();
+  if(!Array.isArray(ranges)) return s;
+  for(const r of ranges){
+    if(!r || !r.start || typeof r.start.row !== 'number') continue;
+    const start = r.start.row;
+    const end = (r.end && typeof r.end.row === 'number') ? r.end.row : start;
+    for(let i = start; i <= end; i++) s.add(i);
+  }
+  return s;
+}
+
+function parseCoverageJson(jsonText, targetFile, totalLines){
+  let data;
+  try { data = JSON.parse(jsonText); } catch(e){ throw new Error('Invalid JSON coverage file'); }
+  const files = data.files || {};
+  const covered = new Set();
+  // attempt to match by exact key or basename match
+  for(const key of Object.keys(files)){
+    if(key === targetFile || key.endsWith('/' + targetFile) || basename(key) === targetFile){
+      const info = files[key];
+      const s = expandRangesToSet(info.covered || []);
+      for(const l of s) covered.add(l);
+    }
+  }
+  const missed = new Set();
+  // mark missed = lines that exist but are not covered (you can change logic if you prefer neutral)
+  for(let i=1;i<=totalLines;i++){
+    if(!covered.has(i)) missed.add(i);
+  }
+  return {covered, missed};
+}
+
+/* ---------- Rendering ---------- */
+function renderCodeTable(codeText, coverageData){
+  const tbody = document.querySelector('#codeTable tbody');
+  tbody.innerHTML = '';
+  const lines = codeText.split(/\r?\n/);
+  for(let i=0;i<lines.length;i++){
+    const lineNumber = i+1;
+    const tr = document.createElement('tr');
+    if(coverageData){
+      if(coverageData.covered && coverageData.covered.has(lineNumber)) tr.classList.add('covered');
+      else if(coverageData.missed && coverageData.missed.has(lineNumber)) tr.classList.add('missed');
+    }
+    const tdLn = document.createElement('td');
+    tdLn.className = 'ln';
+    tdLn.textContent = lineNumber;
+
+    const tdCode = document.createElement('td');
+    tdCode.className = 'code';
+    // highlight the single line — feed into tokenizer (tokenizeRego works on full code too)
+    // We call tokenizeRego on the line (not entire file) to avoid cross-line tokenization issues
+    tdCode.innerHTML = tokenizeRego(lines[i] || '');
+    tr.appendChild(tdLn);
+    tr.appendChild(tdCode);
+    tbody.appendChild(tr);
+  }
+}
+
+/* ---------- File loading & orchestration ---------- */
+
+async function fetchTextOrThrow(path){
+  const r = await fetch(path, {cache:'no-store'});
+  if(!r.ok) throw new Error(`Failed to fetch "${path}": ${r.status} ${r.statusText}`);
+  return r.text();
+}
+
+let currentCodeText = '';
+let currentCoverage = null;
+let coverVisible = true;
+
+async function loadAndShow(fileParam, coverageParam){
+  document.getElementById('fileName').textContent = fileParam || '—';
+  document.getElementById('covName').textContent = coverageParam || '—';
+  try {
+    const codeText = await fetchTextOrThrow(fileParam);
+    currentCodeText = codeText;
+    let coverageData = null;
+    if(coverageParam){
+      const covText = await fetchTextOrThrow(coverageParam);
+      // parse with total lines
+      const totalLines = codeText.split(/\r?\n/).length;
+      coverageData = parseCoverageJson(covText, fileParam, totalLines);
+      currentCoverage = coverageData;
+    } else {
+      currentCoverage = null;
+    }
+    renderCodeTable(codeText, currentCoverage);
+    document.getElementById('viewer').style.display = 'block';
+  } catch(err){
+    alert('Error: ' + err.message + '\n\nMake sure you are serving the files over HTTP (e.g. python -m http.server) and the paths in ?file= and ?coverage= are correct and in same folder.');
+    console.error(err);
+  }
+}
+
+/* ---------- UI wiring ---------- */
+document.getElementById('reloadBtn').addEventListener('click', () => {
+  const f = getQueryParam('file');
+  const c = getQueryParam('coverage');
+  if(f) loadAndShow(f,c);
+});
+
+document.getElementById('copyBtn').addEventListener('click', () => {
+  if(!currentCodeText) return;
+  navigator.clipboard.writeText(currentCodeText).then(()=>{
+    const b = document.getElementById('copyBtn');
+    const old = b.textContent;
+    b.textContent = 'Copied!';
+    setTimeout(()=>b.textContent = old, 1200);
+  }).catch(e=>{
+    alert('Copy failed: ' + e.message);
+  });
+});
+
+document.getElementById('toggleCoverBtn').addEventListener('click', () => {
+  coverVisible = !coverVisible;
+  const rows = document.querySelectorAll('#codeTable tbody tr');
+  rows.forEach(r => {
+    if(coverVisible){
+      // reapply classes from currentCoverage
+      r.classList.remove('covered','missed');
+    } else {
+      // hide coverage: remove coverage classes
+      r.classList.remove('covered','missed');
+    }
+  });
+  // if toggling on, re-render to reapply coverage
+  if(coverVisible && currentCoverage) renderCodeTable(currentCodeText, currentCoverage);
+});
+
+/* ---------- Auto-start ---------- */
+const fileParam = getQueryParam('file');
+const coverageParam = getQueryParam('coverage');
+if(fileParam){
+  loadAndShow(fileParam, coverageParam);
+} else {
+  // no file specified — show explanation
+  document.getElementById('fileName').textContent = 'none (use ?file=...)';
+  document.getElementById('viewer').style.display = 'none';
+}
+</script>
+</body>
+</html>

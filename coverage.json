@@ -1,0 +1,67 @@
+{
+  "files": {
+    "policy_one.rego": {
+      "covered": [
+        {
+          "start": {
+            "row": 3
+          },
+          "end": {
+            "row": 3
+          }
+        },
+        {
+          "start": {
+            "row": 5
+          },
+          "end": {
+            "row": 6
+          }
+        },
+        {
+          "start": {
+            "row": 9
+          },
+          "end": {
+            "row": 10
+          }
+        }
+      ],
+      "covered_lines": 5,
+      "coverage": 100
+    },
+    "policy_one_test.rego": {
+      "covered": [
+        {
+          "start": {
+            "row": 3
+          },
+          "end": {
+            "row": 5
+          }
+        },
+        {
+          "start": {
+            "row": 8
+          },
+          "end": {
+            "row": 10
+          }
+        },
+        {
+          "start": {
+            "row": 13
+          },
+          "end": {
+            "row": 15
+          }
+        }
+      ],
+      "covered_lines": 9,
+      "coverage": 100
+    }
+  },
+  "covered_lines": 14,
+  "not_covered_lines": 0,
+  "coverage": 100
+}
