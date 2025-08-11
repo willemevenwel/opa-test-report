@@ -33,11 +33,11 @@ Or download manually from: [https://openpolicyagent.org/downloads/latest/](https
 ### 3. Run all OPA tests in the project
 From the project root, run:
 ```sh
-./opa test .
+./opa test **.rego
 ```
 - On Windows, use:
 ```sh
-opa.exe test .
+opa.exe test **.rego
 ```
 This will discover and run all tests in all `.rego` files in the current directory and subdirectories.
 
