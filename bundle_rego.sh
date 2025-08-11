@@ -21,11 +21,10 @@ cp "coverage.json" "$TEMP_DIR/"
 
 cp "rego-coverage-report.html" "$TEMP_DIR/"
 
-# Create the zip archive
-zip -r "$ZIP_NAME" "$TEMP_DIR" > /dev/null
+# Create the zip archive (flat, no rego_temp folder)
+(cd "$TEMP_DIR" && zip -r "../$ZIP_NAME" . > /dev/null)
 
 # Clean up
 rm -r "$TEMP_DIR"
 
 echo "Done! Created $ZIP_NAME with non-test .rego files."
- 

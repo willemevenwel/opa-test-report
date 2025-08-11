@@ -63,7 +63,7 @@ bundle_rego.bat
 
 - Compile the docker image: 
 ```sh
-docker build -t opa-test-report
+docker build -t opa-test-report .
 ```
 - Run the docker image:
 - This will start a local server at [http://localhost:8080](http://localhost:8080)
