@@ -12,10 +12,12 @@ This project demonstrates how to write, test, and generate coverage reports for 
 ## Quick Start
 
 1. Run all tests: <code>run_opa_tests.sh</code> or <code>run_opa_tests.bat</code>
-2. Run bundler: <code>bundle_rego.sh</code> or <code>bundle_rego.bat</code>
-3. Compile Docker image: <code>docker build -t opa-test-report .</code>
-4. Run Docker image: <code>docker run -p 8080:80 opa-test-report</code>
-5. Visit: [http://localhost:8080](http://localhost:8080)
+   - Dependant on the opa executable
+2. Compile Docker image: <code>docker build -t opa-test-report .</code>
+3. Run as a webserver (port 3000): <code>docker run --rm -p 3000:3000 opa-test-report web</code>
+   - Visit: [http://localhost:3000](http://localhost:3000)
+4. Generate a static HTML report: <code>docker run --rm -v "$PWD/output:/app/output" opa-test-report custom-report.html</code>
+   - The report will be saved as <code>output/custom-report.html</code>.
 
 ## Setup
 
@@ -56,34 +58,36 @@ This will discover and run all tests in all `.rego` files in the current directo
 - On Windows, you may need to use Git Bash or WSL to run the shell script, or adapt the script for PowerShell.
 - This script runs your tests and outputs a coverage report in `coverage.json`.
 
-### 5. Serve the coverage report using a Docker nginx container
 
-- Run the bundle package script
-- this creates the rego_bundle.zip with all your rego policies the data and the report html.
+### 5. Serve or generate the coverage report using Docker
 
-```sh
-./bundle_rego.sh
-```
-or on windows:
-```sh
-bundle_rego.bat 
-```
+- **To run as a webserver (port 3000):**
+   ```sh
+   docker run --rm -p 3000:3000 opa-test-report web
+   ```
+   Visit: [http://localhost:3000](http://localhost:3000)
 
-- Compile the docker image: 
-```sh
-docker build -t opa-test-report .
-```
-- Run the docker image:
-- This will start a local server at [http://localhost:8080](http://localhost:8080)
-```sh
-docker run -p 8080:80 opa-test-report
-```
+- **To generate a static HTML report:**
+   ```sh
+   docker run --rm -v "$PWD/output:/app/output" opa-test-report custom-report.html
+   ```
+   The report will be saved as <code>output/custom-report.html</code>.
 
 ### 6. View the coverage report
 - Open your browser and go to:
-  [http://localhost:8000/rego-coverage-report.html?file=policy_one.rego&coverage=coverage.json](http://localhost:8000/rego-coverage-report.html?file=policy_one.rego&coverage=coverage.json)
+   [http://localhost:3000/?coverage=coverage.json](http://localhost:3000/?coverage=coverage.json)
+
 
 ## Notes
+- Only the following files are included in the Docker image:
+   - `rego-coverage-report.html`
+   - `coverage.json`
+   - All `*.rego` files (except `*_test.rego` are not used in the container)
+   - `entrypoint.sh`
+   - `render_and_exit.sh`
+   - `render.js`
+   - `server.js`
+   - `package.json`
 - Make sure your test rules are named with underscores (e.g., `test_allow_admin`) and do not shadow the built-in `input` variable.
 - Update the OPA binary download link if you are on a different OS/architecture. See the [OPA downloads page](https://openpolicyagent.org/downloads/latest/) for more options.
 - You can repeat the test and coverage steps for other policy/test file pairs (e.g., `policy_two.rego`, `policy_two_test.rego`).
@@ -92,18 +96,18 @@ docker run -p 8080:80 opa-test-report
 
 ## Troubleshooting: Stopping a Stuck Web Server
 
-If you try to start the Python web server and get an error that port 8000 is already in use, you may have a previous server process still running. To stop it:
+If you try to start the Python web server and get an error that port 3000 is already in use, you may have a previous server process still running. To stop it:
 
-1. Find the process using port 8000:
+1. Find the process using port 3000:
    ```sh
-   lsof -i :8000
+   lsof -i :3000
    ```
 2. Kill the process (replace <PID> with the process ID from the previous command):
    ```sh
    kill -9 <PID>
    ```
 
-This will free up port 8000 so you can restart the server.
+This will free up port 3000 so you can restart the server.
 
 ---
 

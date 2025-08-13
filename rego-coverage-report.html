@@ -144,7 +144,7 @@
 <body>
 
 <h1>Offline Rego Unit Test Coverage Viewer</h1>
-<p class="help">Instructions: open with a local server and pass query params: <code>?file=policy.rego&amp;coverage=coverage.json</code>. Skipping the <code>file</code> query param forces load of all policies/tests.</p>
+<p class="help">Instructions: open with a local server and pass query param: <code>?coverage=coverage.json</code>. The report will show all files in the coverage report.</p>
 
 <div class="controls">
   <table class="summary-table" style="margin-bottom: 12px;">
@@ -685,97 +685,7 @@ async function renderPolicyCard(container, f, covData, covText) {
   }
 }
 
-// --- Modified loadAndShow to use the shared card renderer ---
-async function loadAndShow(fileParam, coverageParam){
-  document.getElementById('fileName').textContent = fileParam || '—';
-  let covText = '';
-  let covData = {};
-  if(coverageParam){
-    try {
-      covText = await fetchTextOrThrow(coverageParam);
-      covData = JSON.parse(covText);
-    } catch (e) {}
-  }
-  // Coverage percentage for this file from its 'coverage' field in coverage.json
-  let pct = '';
-  let fileCoveredLines = 0;
-  let fileNotCoveredLines = 0;
-  if (covData.files) {
-    // Try to match by exact key, or by basename
-    let fileEntry = covData.files[fileParam];
-    if (!fileEntry) {
-      // Try to find by basename
-      const base = basename(fileParam);
-      for (const key of Object.keys(covData.files)) {
-        if (basename(key) === base) {
-          fileEntry = covData.files[key];
-          break;
-        }
-      }
-    }
-    if (fileEntry && fileEntry.coverage !== undefined) {
-      pct = fileEntry.coverage > 1 ? fileEntry.coverage.toFixed(0) + '%' : (fileEntry.coverage * 100).toFixed(0) + '%';
-    }
-    fileCoveredLines = fileEntry && fileEntry.covered_lines !== undefined ? fileEntry.covered_lines : 0;
-    fileNotCoveredLines = fileEntry && fileEntry.not_covered_lines !== undefined ? fileEntry.not_covered_lines : 0;
-  }
-  // Add link to coverage.json next to coverage percentage
-  let covNameElem = document.getElementById('covName');
-  covNameElem.innerHTML = (pct || (coverageParam || '—')) +
-    (coverageParam ?
-      ' <span style="font-size:13px;color:var(--muted);">(<a href="' + encodeURI(coverageParam) + '" target="_blank" style="color:var(--muted);text-decoration:underline;">' + basename(coverageParam) + '</a>)</span>'
-      : '');
 
-  // If a file parameter is present, show only that file's coverage
-  if (fileParam) {
-    // Find the file entry in coverage.json
-    let fileEntry = null;
-    if (covData.files) {
-      fileEntry = covData.files[fileParam];
-      if (!fileEntry) {
-        // Try to find by basename
-        const base = basename(fileParam);
-        for (const key of Object.keys(covData.files)) {
-          if (basename(key) === base) {
-            fileEntry = covData.files[key];
-            break;
-          }
-        }
-      }
-    }
-    // Use fileEntry's coverage, covered_lines, not_covered_lines for the summary table
-    let fileCoverage = '—';
-    let fileCoveredLines = 0;
-    let fileNotCoveredLines = 0;
-    if (fileEntry) {
-      if (fileEntry.coverage !== undefined) {
-        fileCoverage = fileEntry.coverage > 1 ? fileEntry.coverage.toFixed(0) + '%' : (fileEntry.coverage * 100).toFixed(0) + '%';
-      }
-      fileCoveredLines = fileEntry.covered_lines !== undefined ? fileEntry.covered_lines : 0;
-      fileNotCoveredLines = fileEntry.not_covered_lines !== undefined ? fileEntry.not_covered_lines : 0;
-    }
-    document.getElementById('fileName').textContent = basename(fileParam);
-    document.getElementById('covName').textContent = fileCoverage;
-    document.getElementById('mainCoveredLines').textContent = fileCoveredLines;
-    document.getElementById('mainNotCoveredLines').textContent = fileNotCoveredLines;
-
-    // Use the shared card renderer for a single file
-    const viewer = document.getElementById('viewer');
-    viewer.innerHTML = '';
-    await renderPolicyCard(viewer, fileParam, covData, covText);
-    viewer.style.display = 'block';
-  } else {
-    // Use the shared card renderer for all files (if coverageParam is present)
-    const viewer = document.getElementById('viewer');
-    viewer.innerHTML = '';
-    if (coverageParam) {
-      showPolicyFileSelector(coverageParam);
-      viewer.style.display = 'none';
-    } else {
-      viewer.style.display = 'none';
-    }
-  }
-}
 
 /* ---------- File loading & orchestration ---------- */
 
@@ -792,21 +702,14 @@ let currentCoverage = null;
 // Removed event listeners for reload, copy, and toggle coverage buttons
 
 /* ---------- Auto-start ---------- */
-const fileParam = getQueryParam('file');
 const coverageParam = getQueryParam('coverage');
-if(fileParam){
-  // Only show the requested file
-  loadAndShow(fileParam, coverageParam);
-  document.getElementById('viewer').style.display = 'block';
-} else if(coverageParam){
-  // If only coverage is provided, show all policy files with coverage
+if(coverageParam){
   showPolicyFileSelector(coverageParam);
   document.getElementById('fileName').textContent = 'All';
   document.getElementById('covName').textContent = '—';
   document.getElementById('viewer').style.display = 'none';
 } else {
-  // no file specified — show explanation
-  document.getElementById('fileName').textContent = 'none (use ?file=...)';
+  document.getElementById('fileName').textContent = 'none (use ?coverage=...)';
   document.getElementById('viewer').style.display = 'none';
 }
 </script>

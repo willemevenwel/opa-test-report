@@ -1,4 +1,6 @@
+node_modules/
+output/
 # Ignore OPA executables
 opa
 opa.exe
-rego_bundle.zip
+
