@@ -7,10 +7,6 @@ FROM node:20-bookworm-slim
 RUN apt-get update && apt-get install -y chromium netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 
-
-RUN apt-get update && apt-get install -y chromium netcat-openbsd \
-    && rm -rf /var/lib/apt/lists/*
-
 # Puppeteer will use system Chromium
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
@@ -27,7 +23,6 @@ RUN npm install --production
 # Copy only required files
 COPY rego-coverage-report.html ./
 COPY coverage.json ./
-COPY package.json ./
 COPY entrypoint.sh ./
 COPY render_and_exit.sh ./
 COPY render.js ./
