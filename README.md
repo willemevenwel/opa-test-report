@@ -53,7 +53,7 @@ This will discover and run all tests in all `.rego` files in the current directo
 
 ### 4. Run OPA tests and generate coverage for a single policy and test
 ```sh
-./opa-test-single-coverage.sh policy_one.rego policy_one_test.rego > coverage.json
+./opa_test_single_coverage.sh policy_one.rego policy_one_test.rego > coverage.json
 ```
 - On Windows, you may need to use Git Bash or WSL to run the shell script, or adapt the script for PowerShell.
 - This script runs your tests and outputs a coverage report in `coverage.json`.

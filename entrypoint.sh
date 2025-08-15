@@ -3,9 +3,12 @@
 set -e
 
 if [ "$1" = "web" ]; then
-  echo "[Entrypoint] Starting Express webserver on port 3000..."
+  echo "ℹ️  - Starting Express webserver on port 3000..."
   exec node server.js
+  echo "✅ - Node running."
 else
-  echo "[Entrypoint] Running static render..."
+  echo "ℹ️  - Running static render..."
   exec sh render_and_exit.sh "$@"
+  echo "✅ - Static render has run."
 fi
+ 
