@@ -158,58 +158,23 @@
       "covered": [
         {
           "start": {
-            "row": 5
-          },
-          "end": {
-            "row": 5
-          }
-        },
-        {
-          "start": {
-            "row": 7
-          },
-          "end": {
-            "row": 7
-          }
-        },
-        {
-          "start": {
-            "row": 9
-          },
-          "end": {
-            "row": 9
-          }
-        },
-        {
-          "start": {
-            "row": 11
-          },
-          "end": {
-            "row": 11
-          }
-        },
-        {
-          "start": {
-            "row": 13
-          },
-          "end": {
-            "row": 13
-          }
-        }
-      ],
-      "not_covered": [
-        {
-          "start": {
             "row": 3
           },
           "end": {
             "row": 3
           }
+        },
+        {
+          "start": {
+            "row": 5
+          },
+          "end": {
+            "row": 5
+          }
         }
       ],
-      "covered_lines": 5,
-      "not_covered_lines": 1,
-      "coverage": 83.33333333333333
+      "covered_lines": 2,
+      "coverage": 100
     },
     "tests/order_service/invoice/allow.rego": {
       "covered": [
@@ -410,7 +375,7 @@
       "coverage": 100
     }
   },
-  "covered_lines": 37,
-  "not_covered_lines": 1,
-  "coverage": 97.36842105263158
+  "covered_lines": 34,
+  "not_covered_lines": 0,
+  "coverage": 100
 }
