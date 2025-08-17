@@ -11,13 +11,24 @@ This project demonstrates how to write, test, and generate coverage reports for 
 
 ## Quick Start
 
-1. Run all tests: <code>run_opa_tests.sh</code> or <code>run_opa_tests.bat</code>
-   - Dependant on the opa executable
+1. Run tests using the `polly.sh` script:
+    - Make sure the `opa` binary is present in the project root (see Setup below).
+    - Usage examples:
+       - Run all tests:
+          ```sh
+          ./polly.sh all
+          ```
+       - List available services and entities:
+          ```sh
+          ./polly.sh list
+          ```
+       - See `./polly.sh` for more usage details.
+
 2. Compile Docker image: <code>docker build -t opa-test-report .</code>
 3. Run as a webserver (port 3000): <code>docker run --rm -p 3000:3000 opa-test-report web</code>
-   - Visit: [http://localhost:3000](http://localhost:3000)
+    - Visit: [http://localhost:3000](http://localhost:3000)
 4. Generate a static HTML report: <code>docker run --rm -v "$PWD/output:/app/output" opa-test-report custom-report.html</code>
-   - The report will be saved as <code>output/custom-report.html</code>.
+    - The report will be saved as <code>output/custom-report.html</code>.
 
 ## Setup
 
@@ -36,45 +47,71 @@ curl -L -o opa.exe https://openpolicyagent.org/downloads/latest/opa_windows_amd6
 ```
 Or download manually from: [https://openpolicyagent.org/downloads/latest/](https://openpolicyagent.org/downloads/latest/)
 
-### 2. Write your Rego policies and tests
-- Place your policy files (e.g., `policy_one.rego`, `policy_two.rego`) and corresponding test files (e.g., `policy_one_test.rego`, `policy_two_test.rego`) in the project directory.
+
+### 2. Write your Rego policies, tests, and test data
+- Place your policy files in the `policies/` directory, organized by service and entity. For example:
+   - `policies/order_service/invoice/allow.rego`
+   - `policies/user_service/teacher/validate.rego`
+- Place your test files in the corresponding `tests/` directory, mirroring the structure of your policies. For example:
+   - `tests/order_service/invoice/allow.rego`
+   - `tests/user_service/teacher/validate.rego`
+- Place your test data files in the `test_data/` directory, also mirroring the structure. For example:
+   - `test_data/order_service/invoice/data.json`
+   - `test_data/user_service/teacher/data.json`
 - Test rules must start with `test_` and use the `if` keyword (required for OPA >= 0.47.0).
 
-### 3. Run all OPA tests in the project using Makefile
+## polly.sh Usage
 
-## Makefile Usage
+The `polly.sh` script provides a flexible way to run OPA tests and generate coverage reports. It supports running tests for all policies, or for any specific service, entity, directory, or policy file by simply providing the path as the first argument. It also supports coverage and verbose output options.
 
-This project includes a `Makefile` to simplify running OPA tests and generating coverage reports. You can use the following commands:
+### Usage
 
-### Global Targets
+```
+./polly.sh [all|list|<path>] [--coverage <output.json>] [--verbose]
+```
 
-- `make test` — Run all tests for all policies and test data.
-- `make test-verbose` — Run all tests with verbose output.
-- `make coverage` — Run all tests and generate a coverage report (`{root}/coverage.json`).
+#### Examples
 
-### Per-Entity Targets
+- Run all tests:
+   ```sh
+   ./polly.sh all
+   ```
+- List available services and entities:
+   ```sh
+   ./polly.sh list
+   ```
+- Run tests for a service:
+   ```sh
+   ./polly.sh service order_service
+   ```
+- Run tests for an entity:
+   ```sh
+   ./polly.sh order_service/invoice
+   ```
+- Run tests for a specific policy file or directory:
+   ```sh
+   ./polly.sh order_service/invoice/validate
+   ./polly.sh order_service/invoice
+   ```
+- Generate a coverage report:
+   ```sh
+   ./polly.sh all --coverage 
+   ./polly.sh all --coverage coverage.json
+   ```
+- Run with verbose output:
+   ```sh
+   ./polly.sh all --verbose
+   ./polly.sh all --verbose verbose.txt
+   ```
+- All together:
+   ```sh
+   ./polly.sh order_service/invoice/validate --verbose verbose.txt
+   ./polly.sh user_service/student/allow --coverage coverage.json
+   ```
 
-For each entity (e.g., `order_service/invoice`, `user_service/teacher`), you can run tests or generate coverage for just that entity:
+See the top of `polly.sh` for more details and options.
 
-- `make test-<entity>` — Run tests for a specific entity (e.g., `make test-order_service/invoice`).
-- `make test-<entity>-verbose` — Run verbose tests for a specific entity.
-- `make coverage-<entity>` — Generate coverage for a specific entity.
-
-### Per-Service Targets
-
-For each service (e.g., `order_service`, `user_service`), you can run all tests or generate coverage for that service:
-
-- `make test-<service>` — Run all tests for a service (e.g., `make test-order_service`).
-- `make test-<service>-verbose` — Run all tests for a service with verbose output.
-- `make coverage-<service>` — Generate coverage for a service.
-
-### List All Available Targets
-
-- `make list-tests` — List all available per-entity and per-service targets.
-
----
-
-### 4. Serve or generate the coverage report using Docker
+### 3. Serve or generate the coverage report using Docker
 
 - **To run as a webserver (port 3000):**
    ```sh
@@ -88,10 +125,9 @@ For each service (e.g., `order_service`, `user_service`), you can run all tests 
    ```
    The report will be saved as <code>output/custom-report.html</code>.
 
-### 5. View the coverage report
+### 4. View the coverage report
 - Open your browser and go to:
    [http://localhost:3000/?coverage=coverage.json](http://localhost:3000/?coverage=coverage.json)
-
 
 ## Notes
 - Only the following files are included in the Docker image:
