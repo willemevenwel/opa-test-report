@@ -1,0 +1,6 @@
+{
+  "teachers": [
+    {"id": "t1", "role": "teacher"},
+    {"id": "t2", "role": "teacher"}
+  ]
+}

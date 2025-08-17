@@ -1,0 +1,6 @@
+{
+  "invoices": [
+    {"id": "inv1", "status": "open", "total": 100},
+    {"id": "inv2", "status": "closed", "total": 200}
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "payments": [
+    {"id": "pay1", "method": "credit_card", "amount": 50},
+    {"id": "pay2", "method": "bank_transfer", "amount": 150}
+  ]
+}

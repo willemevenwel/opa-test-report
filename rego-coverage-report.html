@@ -199,8 +199,8 @@ async function listPolicyFiles(coveragePath) {
     const covText = await fetchTextOrThrow(coveragePath);
     const data = JSON.parse(covText);
     const files = data.files || {};
-    // Only include .rego files that do NOT end with _test.rego
-    return Object.keys(files).filter(f => f.endsWith('.rego') && !f.endsWith('_test.rego'));
+  // Only include .rego files that do NOT have 'test' in their name or full path
+  return Object.keys(files).filter(f => f.endsWith('.rego') && !/test/i.test(f));
   } catch (e) {
     alert('Could not load coverage.json: ' + e.message);
     return [];
@@ -268,13 +268,13 @@ async function showPolicyFileSelector(coveragePath) {
     collapseIcon.style.marginRight = '10px';
     headerRow.appendChild(collapseIcon);
 
-    // File header
-    const fileHeader = document.createElement('h2');
-    fileHeader.textContent = basename(f);
-    fileHeader.style.margin = '0';
-    fileHeader.style.flex = '1';
-    fileHeader.style.fontSize = '16px';
-    headerRow.appendChild(fileHeader);
+  // File header: basename, with full path in lighter font in brackets
+  const fileHeader = document.createElement('h2');
+  fileHeader.innerHTML = `${basename(f)} <span style="font-weight:400;font-size:13px;color:var(--muted);">(${escapeHtml(f)})</span>`;
+  fileHeader.style.margin = '0';
+  fileHeader.style.flex = '1';
+  fileHeader.style.fontSize = '16px';
+  headerRow.appendChild(fileHeader);
 
     // Toggle button for coverage highlight (eye icon)
     const toggleBtn = document.createElement('button');
@@ -540,9 +540,9 @@ async function renderPolicyCard(container, f, covData, covText) {
   collapseIcon.style.marginRight = '10px';
   headerRow.appendChild(collapseIcon);
 
-  // File header
+  // File header: basename, with full path in lighter font in brackets
   const fileHeader = document.createElement('h2');
-  fileHeader.textContent = basename(f);
+  fileHeader.innerHTML = `${basename(f)} <span style="font-weight:400;font-size:13px;color:var(--muted);">(${escapeHtml(f)})</span>`;
   fileHeader.style.margin = '0';
   fileHeader.style.flex = '1';
   fileHeader.style.fontSize = '16px';

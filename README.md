@@ -40,26 +40,41 @@ Or download manually from: [https://openpolicyagent.org/downloads/latest/](https
 - Place your policy files (e.g., `policy_one.rego`, `policy_two.rego`) and corresponding test files (e.g., `policy_one_test.rego`, `policy_two_test.rego`) in the project directory.
 - Test rules must start with `test_` and use the `if` keyword (required for OPA >= 0.47.0).
 
-### 3. Run all OPA tests in the project
-From the project root, run:
-```sh
-./run_opa_tests.sh
-```
-- On Windows, use:
-```sh
-run_opa_tests.bat
-```
-This will discover and run all tests in all `.rego` files in the current directory and subdirectories. And save the coverage report as `coverage.json`.
+### 3. Run all OPA tests in the project using Makefile
 
-### 4. Run OPA tests and generate coverage for a single policy and test
-```sh
-./opa_test_single_coverage.sh policy_one.rego policy_one_test.rego > coverage.json
-```
-- On Windows, you may need to use Git Bash or WSL to run the shell script, or adapt the script for PowerShell.
-- This script runs your tests and outputs a coverage report in `coverage.json`.
+## Makefile Usage
 
+This project includes a `Makefile` to simplify running OPA tests and generating coverage reports. You can use the following commands:
 
-### 5. Serve or generate the coverage report using Docker
+### Global Targets
+
+- `make test` — Run all tests for all policies and test data.
+- `make test-verbose` — Run all tests with verbose output.
+- `make coverage` — Run all tests and generate a coverage report (`{root}/coverage.json`).
+
+### Per-Entity Targets
+
+For each entity (e.g., `order_service/invoice`, `user_service/teacher`), you can run tests or generate coverage for just that entity:
+
+- `make test-<entity>` — Run tests for a specific entity (e.g., `make test-order_service/invoice`).
+- `make test-<entity>-verbose` — Run verbose tests for a specific entity.
+- `make coverage-<entity>` — Generate coverage for a specific entity.
+
+### Per-Service Targets
+
+For each service (e.g., `order_service`, `user_service`), you can run all tests or generate coverage for that service:
+
+- `make test-<service>` — Run all tests for a service (e.g., `make test-order_service`).
+- `make test-<service>-verbose` — Run all tests for a service with verbose output.
+- `make coverage-<service>` — Generate coverage for a service.
+
+### List All Available Targets
+
+- `make list-tests` — List all available per-entity and per-service targets.
+
+---
+
+### 4. Serve or generate the coverage report using Docker
 
 - **To run as a webserver (port 3000):**
    ```sh
@@ -73,7 +88,7 @@ This will discover and run all tests in all `.rego` files in the current directo
    ```
    The report will be saved as <code>output/custom-report.html</code>.
 
-### 6. View the coverage report
+### 5. View the coverage report
 - Open your browser and go to:
    [http://localhost:3000/?coverage=coverage.json](http://localhost:3000/?coverage=coverage.json)
 

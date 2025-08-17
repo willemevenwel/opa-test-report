@@ -1,6 +1,6 @@
 {
   "files": {
-    "policy_one.rego": {
+    "policies/order_service/invoice/allow.rego": {
       "covered": [
         {
           "start": {
@@ -15,7 +15,161 @@
             "row": 5
           },
           "end": {
-            "row": 6
+            "row": 5
+          }
+        }
+      ],
+      "covered_lines": 2,
+      "coverage": 100
+    },
+    "policies/order_service/invoice/validate.rego": {
+      "covered": [
+        {
+          "start": {
+            "row": 3
+          },
+          "end": {
+            "row": 3
+          }
+        },
+        {
+          "start": {
+            "row": 5
+          },
+          "end": {
+            "row": 5
+          }
+        }
+      ],
+      "covered_lines": 2,
+      "coverage": 100
+    },
+    "policies/order_service/payment/allow.rego": {
+      "covered": [
+        {
+          "start": {
+            "row": 3
+          },
+          "end": {
+            "row": 3
+          }
+        },
+        {
+          "start": {
+            "row": 5
+          },
+          "end": {
+            "row": 5
+          }
+        }
+      ],
+      "covered_lines": 2,
+      "coverage": 100
+    },
+    "policies/order_service/payment/validate.rego": {
+      "covered": [
+        {
+          "start": {
+            "row": 3
+          },
+          "end": {
+            "row": 3
+          }
+        },
+        {
+          "start": {
+            "row": 5
+          },
+          "end": {
+            "row": 5
+          }
+        }
+      ],
+      "covered_lines": 2,
+      "coverage": 100
+    },
+    "policies/user_service/student/allow.rego": {
+      "covered": [
+        {
+          "start": {
+            "row": 3
+          },
+          "end": {
+            "row": 3
+          }
+        },
+        {
+          "start": {
+            "row": 5
+          },
+          "end": {
+            "row": 5
+          }
+        }
+      ],
+      "covered_lines": 2,
+      "coverage": 100
+    },
+    "policies/user_service/student/validate.rego": {
+      "covered": [
+        {
+          "start": {
+            "row": 3
+          },
+          "end": {
+            "row": 3
+          }
+        },
+        {
+          "start": {
+            "row": 5
+          },
+          "end": {
+            "row": 5
+          }
+        }
+      ],
+      "covered_lines": 2,
+      "coverage": 100
+    },
+    "policies/user_service/teacher/allow.rego": {
+      "covered": [
+        {
+          "start": {
+            "row": 3
+          },
+          "end": {
+            "row": 3
+          }
+        },
+        {
+          "start": {
+            "row": 5
+          },
+          "end": {
+            "row": 5
+          }
+        }
+      ],
+      "covered_lines": 2,
+      "coverage": 100
+    },
+    "policies/user_service/teacher/validate.rego": {
+      "covered": [
+        {
+          "start": {
+            "row": 5
+          },
+          "end": {
+            "row": 5
+          }
+        },
+        {
+          "start": {
+            "row": 7
+          },
+          "end": {
+            "row": 7
           }
         },
         {
@@ -23,89 +177,15 @@
             "row": 9
           },
           "end": {
-            "row": 10
-          }
-        }
-      ],
-      "covered_lines": 5,
-      "coverage": 100
-    },
-    "policy_one_test.rego": {
-      "covered": [
-        {
-          "start": {
-            "row": 3
-          },
-          "end": {
-            "row": 5
-          }
-        },
-        {
-          "start": {
-            "row": 8
-          },
-          "end": {
-            "row": 10
-          }
-        },
-        {
-          "start": {
-            "row": 13
-          },
-          "end": {
-            "row": 15
-          }
-        }
-      ],
-      "covered_lines": 9,
-      "coverage": 100
-    },
-    "policy_two.rego": {
-      "covered": [
-        {
-          "start": {
-            "row": 3
-          },
-          "end": {
-            "row": 3
-          }
-        },
-        {
-          "start": {
-            "row": 5
-          },
-          "end": {
-            "row": 6
-          }
-        },
-        {
-          "start": {
             "row": 9
-          },
-          "end": {
-            "row": 10
-          }
-        }
-      ],
-      "covered_lines": 5,
-      "coverage": 100
-    },
-    "policy_two_test.rego": {
-      "covered": [
-        {
-          "start": {
-            "row": 3
-          },
-          "end": {
-            "row": 5
           }
         },
         {
           "start": {
-            "row": 8
+            "row": 11
           },
           "end": {
-            "row": 10
+            "row": 11
           }
         },
         {
@@ -113,15 +193,224 @@
             "row": 13
           },
           "end": {
-            "row": 15
+            "row": 13
           }
         }
       ],
-      "covered_lines": 9,
+      "not_covered": [
+        {
+          "start": {
+            "row": 3
+          },
+          "end": {
+            "row": 3
+          }
+        }
+      ],
+      "covered_lines": 5,
+      "not_covered_lines": 1,
+      "coverage": 83.33333333333333
+    },
+    "tests/order_service/invoice/allow.rego": {
+      "covered": [
+        {
+          "start": {
+            "row": 3
+          },
+          "end": {
+            "row": 3
+          }
+        },
+        {
+          "start": {
+            "row": 5
+          },
+          "end": {
+            "row": 5
+          }
+        }
+      ],
+      "covered_lines": 2,
+      "coverage": 100
+    },
+    "tests/order_service/invoice/validate.rego": {
+      "covered": [
+        {
+          "start": {
+            "row": 3
+          },
+          "end": {
+            "row": 3
+          }
+        },
+        {
+          "start": {
+            "row": 5
+          },
+          "end": {
+            "row": 5
+          }
+        }
+      ],
+      "covered_lines": 2,
+      "coverage": 100
+    },
+    "tests/order_service/payment/allow.rego": {
+      "covered": [
+        {
+          "start": {
+            "row": 3
+          },
+          "end": {
+            "row": 3
+          }
+        },
+        {
+          "start": {
+            "row": 5
+          },
+          "end": {
+            "row": 5
+          }
+        }
+      ],
+      "covered_lines": 2,
+      "coverage": 100
+    },
+    "tests/order_service/payment/validate.rego": {
+      "covered": [
+        {
+          "start": {
+            "row": 3
+          },
+          "end": {
+            "row": 3
+          }
+        },
+        {
+          "start": {
+            "row": 5
+          },
+          "end": {
+            "row": 5
+          }
+        }
+      ],
+      "covered_lines": 2,
+      "coverage": 100
+    },
+    "tests/order_service/validate.rego": {
+      "covered": [
+        {
+          "start": {
+            "row": 3
+          },
+          "end": {
+            "row": 3
+          }
+        },
+        {
+          "start": {
+            "row": 5
+          },
+          "end": {
+            "row": 5
+          }
+        }
+      ],
+      "covered_lines": 2,
+      "coverage": 100
+    },
+    "tests/user_service/student/allow.rego": {
+      "covered": [
+        {
+          "start": {
+            "row": 5
+          },
+          "end": {
+            "row": 5
+          }
+        },
+        {
+          "start": {
+            "row": 7
+          },
+          "end": {
+            "row": 7
+          }
+        }
+      ],
+      "covered_lines": 2,
+      "coverage": 100
+    },
+    "tests/user_service/student/validate.rego": {
+      "covered": [
+        {
+          "start": {
+            "row": 5
+          },
+          "end": {
+            "row": 5
+          }
+        },
+        {
+          "start": {
+            "row": 7
+          },
+          "end": {
+            "row": 7
+          }
+        }
+      ],
+      "covered_lines": 2,
+      "coverage": 100
+    },
+    "tests/user_service/teacher/allow.rego": {
+      "covered": [
+        {
+          "start": {
+            "row": 3
+          },
+          "end": {
+            "row": 3
+          }
+        },
+        {
+          "start": {
+            "row": 5
+          },
+          "end": {
+            "row": 5
+          }
+        }
+      ],
+      "covered_lines": 2,
+      "coverage": 100
+    },
+    "tests/user_service/teacher/validate.rego": {
+      "covered": [
+        {
+          "start": {
+            "row": 3
+          },
+          "end": {
+            "row": 3
+          }
+        },
+        {
+          "start": {
+            "row": 5
+          },
+          "end": {
+            "row": 5
+          }
+        }
+      ],
+      "covered_lines": 2,
       "coverage": 100
     }
   },
-  "covered_lines": 28,
-  "not_covered_lines": 0,
-  "coverage": 100
+  "covered_lines": 37,
+  "not_covered_lines": 1,
+  "coverage": 97.36842105263158
 }

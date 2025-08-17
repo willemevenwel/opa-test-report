@@ -28,7 +28,8 @@ COPY render_and_exit.sh ./
 COPY render.js ./
 COPY server.js ./
 # Copy only .rego files (test files are excluded by .dockerignore)
-COPY *.rego ./
+# Copy all rego files and directory structure from policies folder
+COPY policies/ ./policies/
 
 # Use entrypoint.sh for dual-mode (webserver or static render)
 ENTRYPOINT ["sh", "entrypoint.sh"]
