@@ -1,4 +1,8 @@
-# OPA Test Report
+
+<div align="center">
+   <img src="polly.png" alt="Polly logo" width="200"/>
+   <h1>Polly (OPA) Test Report</h1>
+</div>
 
 This project demonstrates how to write, test, and generate coverage reports for Open Policy Agent (OPA) Rego policies.
 
