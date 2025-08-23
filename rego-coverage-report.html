@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Welcome to Polly the Offline Rego Viewer (no external libs)</title>
+<title>Welcome to Polly Rego Policy Coverage Report viewer.</title>
 <style>
   :root{
     --bg:#f7f7f7;
@@ -159,8 +159,7 @@
 </head>
 <body>
 
-<h1>Offline Rego Unit Test Coverage Viewer</h1>
-<p class="help">Instructions: open with a local server and pass query param: <code>?coverage=coverage.json</code>. The report will show all files in the coverage report.</p>
+<h1>Welcome to Polly Rego Policy Coverage Report viewer.</h1>
 
 <div class="controls">
   <table class="summary-table" style="margin-bottom: 12px;">
@@ -197,9 +196,6 @@
 <script>
 /* ---------- Helpers ---------- */
 
-function getQueryParam(name){
-  return new URLSearchParams(window.location.search).get(name);
-}
 function basename(path){
   if(!path) return path;
   const parts = path.split('/');
@@ -207,12 +203,13 @@ function basename(path){
 }
 function escapeHtml(s){
   return s.replace(/[&<>"']/g, function(c){
-    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]);
+    return ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;','\'':'&#39;'}[c]);
   });
 }
 
 // New: List all policy files (not _test.rego) from coverage.json
 async function listPolicyFiles(coveragePath) {
+  console.log("[Info] - reading all policies at " + coveragePath);
   try {
     const covText = await fetchTextOrThrow(coveragePath);
     const data = JSON.parse(covText);
@@ -227,6 +224,7 @@ async function listPolicyFiles(coveragePath) {
 
 // New: UI for selecting and displaying all policy files
 async function showPolicyFileSelector(coveragePath) {
+  console.log("[Info] - loading " + coveragePath);
   const files = await listPolicyFiles(coveragePath);
   const container = document.createElement('div');
   container.style.margin = '16px 0';
@@ -235,7 +233,7 @@ async function showPolicyFileSelector(coveragePath) {
   labelRow.style.display = 'flex';
   labelRow.style.alignItems = 'center';
   labelRow.style.gap = '16px';
-  // Label
+        // Label and buttons for policy file coverage
   const label = document.createElement('strong');
   label.textContent = 'Policy file coverage:';
   labelRow.appendChild(label);
@@ -253,6 +251,32 @@ async function showPolicyFileSelector(coveragePath) {
   btnCollapse.textContent = 'Collapse All';
   btnCollapse.type = 'button';
   labelRow.appendChild(btnCollapse);
+        // After all policies are rendered, fetch and display /verbose.txt
+        try {
+          const resp = await fetch('/verbose.txt', {cache:'no-store'});
+          if (resp.ok) {
+            const txt = await resp.text();
+            if (txt && txt.trim()) {
+              // Find the ASCII art <pre> (the last <pre> in the document)
+              const pres = document.querySelectorAll('pre');
+              const asciiPre = pres[pres.length-1];
+              if (asciiPre) {
+                // Insert a new <pre> above the ASCII art
+                const verbosePre = document.createElement('pre');
+                verbosePre.id = 'verbose-pre';
+                verbosePre.style.margin = '32px 0 0 0';
+                verbosePre.style.background = '#fff';
+                verbosePre.style.border = '1px solid #eee';
+                verbosePre.style.borderRadius = '6px';
+                verbosePre.style.padding = '16px';
+                verbosePre.style.fontSize = '14px';
+                verbosePre.style.overflowX = 'auto';
+                verbosePre.textContent = txt.trim();
+                asciiPre.parentNode.insertBefore(verbosePre, asciiPre);
+              }
+            }
+          }
+        } catch (e) { /* ignore */ }
   container.appendChild(labelRow);
   // Insert before .viewer
   const viewer = document.getElementById('viewer');
@@ -290,6 +314,7 @@ async function showPolicyFileSelector(coveragePath) {
   const collapsibles = [];
   let idx = 0;
   for (const f of files) {
+    console.log("[Info] - rendering " + f);
     idx++;
     const policyPrefix = `policy${idx}`;
     // Collapsible container for each policy
@@ -853,19 +878,11 @@ let currentCodeText = '';
 let currentCoverage = null;
 
 /* ---------- UI wiring ---------- */
-// Removed event listeners for reload, copy, and toggle coverage buttons
-
-/* ---------- Auto-start ---------- */
-const coverageParam = getQueryParam('coverage');
-if(coverageParam){
-  showPolicyFileSelector(coverageParam);
-  document.getElementById('fileName').textContent = 'All';
-  document.getElementById('covName').textContent = '—';
-  document.getElementById('viewer').style.display = 'none';
-} else {
-  document.getElementById('fileName').textContent = 'none (use ?coverage=...)';
-  document.getElementById('viewer').style.display = 'none';
-}
+// Always load /coverage.json on page load
+showPolicyFileSelector('/coverage.json');
+document.getElementById('fileName').textContent = 'All';
+document.getElementById('covName').textContent = '—';
+document.getElementById('viewer').style.display = 'none';
 </script>
 </script>
 <script>
@@ -1076,5 +1093,127 @@ window.addEventListener('DOMContentLoaded', function() {
   }, 0);
 });
 </script>
+<div id="verbose-main">
+  <script>
+  // --- Render verbose.txt as a test results table inside verbose-main ---
+  async function renderVerboseTable(verbosePath) {
+    try {
+      const response = await fetch(verbosePath);
+      if (!response.ok) return;
+      const text = await response.text();
+      const lines = text.split('\n');
+      const tableData = [];
+      let currentFile = null;
+      const fileHeaderRe = /^([\w\/-]+\.rego):$/;
+      const testLineRe = /^([^\s:]+):\s+(PASS|FAIL)\s+\(([^)]+)\)$/;
+      for (const line of lines) {
+        const fileMatch = line.match(fileHeaderRe);
+        if (fileMatch) {
+          currentFile = fileMatch[1];
+          continue;
+        }
+        const testMatch = line.match(testLineRe);
+        if (testMatch && currentFile) {
+          tableData.push({
+            file: currentFile,
+            test: testMatch[1],
+            result: testMatch[2],
+            time: testMatch[3]
+          });
+        }
+      }
+      if (!tableData.length) return;
+      const table = document.createElement('table');
+      table.className = 'verbose-table';
+      table.style.margin = '32px 0 24px 0';
+      table.style.borderCollapse = 'collapse';
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th style="padding:6px 12px; border:1px solid #ccc;">Test File</th>
+            <th style="padding:6px 12px; border:1px solid #ccc;">Test Name</th>
+            <th style="padding:6px 12px; border:1px solid #ccc;">Result</th>
+            <th style="padding:6px 12px; border:1px solid #ccc;">Time</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableData.map(row => `
+            <tr>
+              <td style="padding:6px 12px; border:1px solid #eee;">${row.file}</td>
+              <td style="padding:6px 12px; border:1px solid #eee;">${row.test}</td>
+              <td style="padding:6px 12px; border:1px solid #eee;">${row.result}</td>
+              <td style="padding:6px 12px; border:1px solid #eee;">${row.time}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      `;
+      // Insert as first child of verbose-main
+      const verboseMain = document.getElementById('verbose-main');
+      if (verboseMain) {
+        verboseMain.insertBefore(table, verboseMain.firstChild);
+      }
+    } catch (e) { /* ignore */ }
+  }
+  document.addEventListener('DOMContentLoaded', function() {
+    renderVerboseTable('/verbose.txt');
+  });
+  </script>
+  <pre>
+    Welcome to Polly Rego Policy Coverage Report utility!
+
+    :::::::::::::::::::::::::::------::.+#+=::::::::::::::::::::::::::::::
+    ::::::::::::::::::::::::-+*********+=:*##*::::::::::::::::::::::::::::
+    ::::------------------=*#**************#*#=:-====-::::::::::::::::::::
+    :::++++++++++++++++++*#***************##*##*********=:::::::::::::::::
+    ::-*+++++++++==++++=*#*##***************************#*-.::::::::::::::
+    ::-*+++++++=--=+++++####***************#**************#-::::::::::::::
+    ::-*++=-++=:-=++++++*+#****************#***************#+-::::=+::::::
+    ::-*++=:---=++++++++++#**********#*====#*******************++**#=:::::
+    ::-*++++--++++++++++++##**********-=====*******##**************#+:::::
+    ::-*++++++++=-=+++++*#**#*******##====+++**+++=*#*************#+::::::
+    ::-*++==++=--=++++++#*#*+++++++++===========---+#*************#+::::::
+    ::-*++=:--:=+++++++*#*#***+=-===-====*******+===****************#-::::
+    ::-*+++=--=+++++++++%#+==+*#+======**+++++=+**=-=*#***************::::
+    ::-*++++++++=-=++++#**=+=-=*#*====#*++=---++=*#==-=*##***********#-:::
+    ::-*++==+++-:-++++*#*#+-...-*#==-**++:.::::=*=#+===+#************#::::
+    ::-*++=:==:-=+++++##*#*:-++-+#*++#+*::+*+-::*=*#***##***********#+::::
+    ::-*+++=::=+++++++#*=#*:*%%*+%***#*+:+%%%*::*=#*===#**********##=:::::
+    ::-*++++=++++==++++#**+=*%#*+++++##*:*%#%*:+++#==+##*********#=:::::::
+    ::-*+++++++=--=+++=*#+=+**==---===*#+=*#*==++#+===++##******#=..::::::
+    ::-*++=-==--=++++++*=+***======+=-=+#**++****======-*#*****#-.:-::::::
+    ::-*+++-::-++++++++*-==#=-=========-+#***++=========#******#==*#::::::
+    ::-*++++==+++++++++#+-=#=-==========#*=++-=========+#*********#+::::::
+    :::+++++++++++++++++#+=+*=-+***#####%+-*+-======-=*#****##****+:::::::
+    ::::--------====-----=+++*+*=*+%#**#*-=*========*##**##*##+--:::::::::
+    ::::::::::-*****+-:::::-=+*+=+*+***+=+*=====++*##*%#*##+==::::::::::::
+    :::::::::-#*******:::::::::-==+*++++*+===++#+:-=+++---::::::::::::::::
+    ::::::::.-#*****##+=::::::::..-#===========**-:..:::::::::::::=+**-:::
+    ::::::::=*****#*+++**:::::::-+#+-========++****+=:::::::::::=**++*+:::
+    :::::::=#+++++#+++*+#-.:::-+*#*+======++++**++++**=:::::::-**++++#-:::
+    :::::::-#*****#****+#+==+**+#*++++++++++++#+++++++*+:::::=*+++++#=::::
+    :::::::=#+++++*#*#+++++*+++**+++++++++++++#++++++++**-::=#+++++#++++::
+    :::::::=#++***#**##**++++++#++++++++++++++#++++++++++*--#+++++##*++#::
+    ::::::::-**+*##******#*+++**++++++++++++++*#*****+++++*#++++*#*+++#=::
+    ::::::::::-*#*********#++*#*++++++++++*****+++++++++++*#+++**++++*=:::
+    :::::::::::+**********#*+==#++++++++***++++++++++++++++#*+**+++**-::::
+    :::::::::::=#***#####**=---**+++++***+***++++++++++++++**++++**=::::::
+    :::::::::::-+*#*+++==------=***++**+**++***++++++++++***+++**+-::--:::
+    ===========+++============-:::-+*#+#*+*#*+++***++++*##*++**+==========
+    =========++=-==++=-----:--=+-::.=#**+*#+++*#*****+++++**+=============
+    ======+++-::=+-+++=++++=====+:-==-=**#****++==---::::-+#+++++++++=====
+    ====+*+-:::::+=:::------==+=+==-::::--==-::::::::::-==-+*+============
+    ====#========-====-------=+*=-:::::::::::::::::::-==-=-=#**+==========
+    ===*#===----======-------==-:::::::::::::::::::-==--=-=+*#*+==========
+    ==+###****++==---==-:.:==-:::::::::::::::::::-==-=--=**#*+============
+    ====++****###**++==++=*+=======---:::::::::-==-==-=**#*+==============
+    ==========+++**#####%%*+===---=======-:::-==-=--=**#*+================
+    ================+**######***++==----====+=-==-=*##*+==================
+    ==================+++++++***###**++==--=+--==*##*+====================
+    ===========================+++***###**+=+==*##*+======================
+    =================================++***###*##*+========================
+    ======================================++***+==========================
+    Created by @willemevenwel on GitHub
+  </pre>
+</div>
 </body>
 </html>

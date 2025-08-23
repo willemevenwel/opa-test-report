@@ -20,7 +20,7 @@ done
 # Use first argument as output file name, default to opa-static-report.html if not provided
 OUTPUT_FILE=${1:-opa-static-report.html}
 echo "ℹ️  - Starting render.js"
-node render.js http://localhost:3000?coverage=coverage.json output/$OUTPUT_FILE
+node render.js http://localhost:3000 output/$OUTPUT_FILE
 echo "✅ - Render has run render.js"
 
 # Kill the server

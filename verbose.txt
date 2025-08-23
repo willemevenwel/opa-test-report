@@ -1,0 +1,32 @@
+tests/order_service/invoice/validate.rego:
+data.order_service.invoice.test_valid_total: PASS (217.333µs)
+data.order_service.invoice.test_invalid_total: PASS (158.708µs)
+
+tests/user_service/student/validate.rego:
+data.user_service.student.test_valid_id: PASS (48.046792ms)
+data.user_service.student.test_invalid_id: PASS (192.083µs)
+
+tests/user_service/teacher/validate.rego:
+data.user_service.teacher.test_valid_id: PASS (347.625µs)
+data.user_service.teacher.test_invalid_id: PASS (335.375µs)
+
+tests/order_service/payment/validate.rego:
+data.order_service.payment.test_invalid_amount: PASS (47.993833ms)
+data.order_service.payment.test_valid_amount: PASS (48.101041ms)
+
+tests/user_service/student/allow.rego:
+data.user_service.student.test_allow_student_role: PASS (150.917µs)
+data.user_service.student.test_deny_non_student: PASS (119.125µs)
+
+tests/order_service/payment/allow.rego:
+data.order_service.payment.test_deny_other_method: PASS (48.054084ms)
+data.order_service.payment.test_allow_credit_card: PASS (171.625µs)
+
+tests/order_service/invoice/allow.rego:
+data.order_service.invoice.test_deny_closed_status: PASS (201.333µs)
+
+tests/user_service/teacher/allow.rego:
+data.user_service.teacher.test_deny_non_teacher: PASS (152.583µs)
+data.user_service.teacher.test_allow_teacher_role: PASS (178.5µs)
+--------------------------------------------------------------------------------
+PASS: 15/15

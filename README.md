@@ -30,6 +30,7 @@ This project demonstrates how to write, test, and generate coverage reports for 
 2. Compile Docker image: <code>docker build -t opa-test-report .</code>or to specify platform<code>docker build --platform=linux/amd64 -t opa-test-report .</code>
 3. Run as a webserver (port 3000): <code>docker run --rm -p 3000:3000 opa-test-report web</code>
       - Visit: [http://localhost:3000](http://localhost:3000)
+         Node serves the rego-coverage-report.html at the root address. And upon loading the page expects the coverage report to be at /coverage.json and the verbose report at /verbose.txt.
       - Enter a bash shell in the container:<br>
          <code>docker run -it --rm opa-test-report bash</code>
 4. Generate a static HTML report: <code>docker run --rm -v "$PWD/output:/app/output" opa-test-report custom-report.html</code>
