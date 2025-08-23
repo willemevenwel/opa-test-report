@@ -57,8 +57,12 @@ function escapeHTML(str) {
     const staticHTML = await page.evaluate(() => {
       console.log("ℹ️  - Page loaded. Cloning it for manipulation.");
       const clone = document.documentElement.cloneNode(true);
-      console.log("⚠️ Removing script tags, unnecessary for static html report");
-      clone.querySelectorAll("script").forEach(s => s.remove());
+      // Remove all <script> tags except the one with id='policy-controls-js'
+      clone.querySelectorAll("script").forEach(s => {
+        if (!(s.id && s.id === 'policy-controls-js')) {
+          s.remove();
+        }
+      });
       return "<!DOCTYPE html>\n" + clone.outerHTML;
     });
 

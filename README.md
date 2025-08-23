@@ -15,22 +15,23 @@ This project demonstrates how to write, test, and generate coverage reports for 
 
 ## Quick Start
 
-1. Run tests using the `polly.sh` script:
+1. Run tests using the opa executable script:
     - Make sure the `opa` binary is present in the project root (see Setup below).
     - Usage examples:
        - Run all tests:
           ```sh
-          ./polly.sh all
+          .opa test .
           ```
-       - List available services and entities:
+       - Run specific tests:
           ```sh
-          ./polly.sh list
+          .opa test somespecific/folder/policy.rego  somespecific/folder/test.rego  somespecific/folder/data.json
           ```
-       - See `./polly.sh` for more usage details.
 
-2. Compile Docker image: <code>docker build -t opa-test-report .</code>
+2. Compile Docker image: <code>docker build -t opa-test-report .</code>or to specify platform<code>docker build --platform=linux/amd64 -t opa-test-report .</code>
 3. Run as a webserver (port 3000): <code>docker run --rm -p 3000:3000 opa-test-report web</code>
-    - Visit: [http://localhost:3000](http://localhost:3000)
+      - Visit: [http://localhost:3000](http://localhost:3000)
+      - Enter a bash shell in the container:<br>
+         <code>docker run -it --rm opa-test-report bash</code>
 4. Generate a static HTML report: <code>docker run --rm -v "$PWD/output:/app/output" opa-test-report custom-report.html</code>
     - The report will be saved as <code>output/custom-report.html</code>.
 
@@ -63,57 +64,6 @@ Or download manually from: [https://openpolicyagent.org/downloads/latest/](https
    - `test_data/order_service/invoice/data.json`
    - `test_data/user_service/teacher/data.json`
 - Test rules must start with `test_` and use the `if` keyword (required for OPA >= 0.47.0).
-
-## polly.sh Usage
-
-The `polly.sh` script provides a flexible way to run OPA tests and generate coverage reports. It supports running tests for all policies, or for any specific service, entity, directory, or policy file by simply providing the path as the first argument. It also supports coverage and verbose output options.
-
-### Usage
-
-```
-./polly.sh [all|list|<path>] [--coverage <output.json>] [--verbose]
-```
-
-#### Examples
-
-- Run all tests:
-   ```sh
-   ./polly.sh all
-   ```
-- List available services and entities:
-   ```sh
-   ./polly.sh list
-   ```
-- Run tests for a service:
-   ```sh
-   ./polly.sh service order_service
-   ```
-- Run tests for an entity:
-   ```sh
-   ./polly.sh order_service/invoice
-   ```
-- Run tests for a specific policy file or directory:
-   ```sh
-   ./polly.sh order_service/invoice/validate
-   ./polly.sh order_service/invoice
-   ```
-- Generate a coverage report:
-   ```sh
-   ./polly.sh all --coverage 
-   ./polly.sh all --coverage coverage.json
-   ```
-- Run with verbose output:
-   ```sh
-   ./polly.sh all --verbose
-   ./polly.sh all --verbose verbose.txt
-   ```
-- All together:
-   ```sh
-   ./polly.sh order_service/invoice/validate --verbose verbose.txt
-   ./polly.sh user_service/student/allow --coverage coverage.json
-   ```
-
-See the top of `polly.sh` for more details and options.
 
 ### 3. Serve or generate the coverage report using Docker
 

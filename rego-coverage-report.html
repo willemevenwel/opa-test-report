@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Offline Rego Viewer (no external libs)</title>
+<title>Welcome to Polly the Offline Rego Viewer (no external libs)</title>
 <style>
   :root{
     --bg:#f7f7f7;
@@ -139,6 +139,22 @@
   .covered-swatch { background: #e6ffe6; border-color: #b2e6b2; }
   .uncovered-swatch { background: #ffe6e6; border-color: #e6b2b2; }
   .ignored-swatch { background: #e6f0ff; border-color: #b2cbe6; }
+
+  /* shimmer effect for scroll-to anchors */
+  @keyframes shimmer {
+    0% { background-position: -1000px 0; }
+    100% { background-position: 1000px 0; }
+  }
+  .shimmer {
+    animation: shimmer-flash 3s 1;
+    background: #ffb347 !important; /* bright orange */
+    box-shadow: none !important;
+  }
+  @keyframes shimmer-flash {
+    0% { background: #ffb347; }
+    90% { background: #ffb347; }
+    100% { background: none; }
+  }
 </style>
 </head>
 <body>
@@ -151,6 +167,8 @@
     <tr>
       <td style="padding-right: 24px;"><strong>Loaded file:</strong></td>
       <td id="fileName">—</td>
+    <td style="padding-right: 24px;"><strong>Total Policies:</strong></td>
+    <td id="totalPolicies">—</td>
       <td style="padding-right: 24px;"><strong>Total coverage:</strong></td>
       <td id="covName">—</td>
       <td style="padding-right: 24px;"><strong>Covered lines:</strong></td>
@@ -212,7 +230,30 @@ async function showPolicyFileSelector(coveragePath) {
   const files = await listPolicyFiles(coveragePath);
   const container = document.createElement('div');
   container.style.margin = '16px 0';
-  container.innerHTML = '<strong>Policy file coverage:</strong>';
+  // Add label and buttons
+  const labelRow = document.createElement('div');
+  labelRow.style.display = 'flex';
+  labelRow.style.alignItems = 'center';
+  labelRow.style.gap = '16px';
+  // Label
+  const label = document.createElement('strong');
+  label.textContent = 'Policy file coverage:';
+  labelRow.appendChild(label);
+  // Buttons
+  const btnAuto = document.createElement('button');
+  btnAuto.textContent = 'Expand Automatic';
+  btnAuto.style.marginLeft = '8px';
+  btnAuto.type = 'button';
+  labelRow.appendChild(btnAuto);
+  const btnExpand = document.createElement('button');
+  btnExpand.textContent = 'Expand All';
+  btnExpand.type = 'button';
+  labelRow.appendChild(btnExpand);
+  const btnCollapse = document.createElement('button');
+  btnCollapse.textContent = 'Collapse All';
+  btnCollapse.type = 'button';
+  labelRow.appendChild(btnCollapse);
+  container.appendChild(labelRow);
   // Insert before .viewer
   const viewer = document.getElementById('viewer');
   viewer.parentNode.insertBefore(container, viewer);
@@ -245,7 +286,12 @@ async function showPolicyFileSelector(coveragePath) {
   document.getElementById('mainNotCoveredLines').textContent = notCoveredLines;
 
   // For each file, render its code and coverage below the selector
+  // Store references to collapsible containers for expand/collapse all
+  const collapsibles = [];
+  let idx = 0;
   for (const f of files) {
+    idx++;
+    const policyPrefix = `policy${idx}`;
     // Collapsible container for each policy
     const collapsible = document.createElement('div');
     collapsible.style.marginBottom = '24px';
@@ -253,6 +299,11 @@ async function showPolicyFileSelector(coveragePath) {
     collapsible.style.borderRadius = '6px';
     collapsible.style.background = '#fafbfc';
 
+    // Set total policies count in the summary table
+    const totalPoliciesElem = document.getElementById('totalPolicies');
+    if (totalPoliciesElem) {
+      totalPoliciesElem.textContent = files.length;
+    }
     // Header row with collapse/expand button, file name, and toggle button
     const headerRow = document.createElement('div');
     headerRow.style.display = 'flex';
@@ -268,13 +319,13 @@ async function showPolicyFileSelector(coveragePath) {
     collapseIcon.style.marginRight = '10px';
     headerRow.appendChild(collapseIcon);
 
-  // File header: basename, with full path in lighter font in brackets
-  const fileHeader = document.createElement('h2');
-  fileHeader.innerHTML = `${basename(f)} <span style="font-weight:400;font-size:13px;color:var(--muted);">(${escapeHtml(f)})</span>`;
-  fileHeader.style.margin = '0';
-  fileHeader.style.flex = '1';
-  fileHeader.style.fontSize = '16px';
-  headerRow.appendChild(fileHeader);
+    // File header: add numbering before basename, with full path in lighter font in brackets
+    const fileHeader = document.createElement('h2');
+    fileHeader.innerHTML = `${idx}. ${basename(f)} <span style="font-weight:400;font-size:13px;color:var(--muted);">(${escapeHtml(f)})</span>`;
+    fileHeader.style.margin = '0';
+    fileHeader.style.flex = '1';
+    fileHeader.style.fontSize = '16px';
+    headerRow.appendChild(fileHeader);
 
     // Toggle button for coverage highlight (eye icon)
     const toggleBtn = document.createElement('button');
@@ -290,6 +341,43 @@ async function showPolicyFileSelector(coveragePath) {
     toggleBtn.style.height = '28px';
     toggleBtn.style.marginLeft = '8px';
     headerRow.appendChild(toggleBtn);
+
+    // Copy-to-clipboard button
+    const copyBtn = document.createElement('button');
+    copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy policy to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>';
+    copyBtn.title = 'Copy policy to clipboard';
+    copyBtn.setAttribute('aria-label', 'Copy policy to clipboard');
+    copyBtn.style.background = 'none';
+    copyBtn.style.border = 'none';
+    copyBtn.style.cursor = 'pointer';
+    copyBtn.style.padding = '0 0 0 8px';
+    copyBtn.style.display = 'flex';
+    copyBtn.style.alignItems = 'center';
+    copyBtn.style.height = '28px';
+    copyBtn.style.marginLeft = '2px';
+    headerRow.appendChild(copyBtn);
+
+    // Copy logic: fetch and copy code for this policy
+    // Prevent header toggle on both click and mousedown
+    copyBtn.addEventListener('mousedown', function(e) {
+      e.stopPropagation();
+    });
+    copyBtn.addEventListener('click', async function(e) {
+      e.stopPropagation();
+      try {
+        const codeText = await fetchTextOrThrow(f);
+        await navigator.clipboard.writeText(codeText);
+        copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copied!</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/><polyline points="7,13 10,16 15,9" fill="none" stroke="#4caf50" stroke-width="2"/></svg>';
+        setTimeout(() => {
+          copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy policy to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>';
+        }, 1200);
+      } catch (err) {
+        copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy failed</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/><line x1="7" y1="7" x2="13" y2="13" stroke="#e53935" stroke-width="2"/><line x1="13" y1="7" x2="7" y2="13" stroke="#e53935" stroke-width="2"/></svg>';
+        setTimeout(() => {
+          copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy policy to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>';
+        }, 1200);
+      }
+    });
 
     // Coverage percentage for this file from its 'coverage' field in coverage.json
     let pct = '';
@@ -321,12 +409,13 @@ async function showPolicyFileSelector(coveragePath) {
     pctSpan.style.color = 'var(--muted)';
     pctSpan.style.fontSize = '14px';
     headerRow.appendChild(pctSpan);
-    // Add summary for this policy
-    const fileSummary = document.createElement('span');
-    fileSummary.innerHTML = `<span style='margin-left:12px;'><strong>Covered lines:</strong> ${fileCoveredLines}</span> <span style='margin-left:12px;'><strong>Not covered lines:</strong> ${fileNotCoveredLines}</span>`;
-    fileSummary.style.color = 'var(--muted)';
-    fileSummary.style.fontSize = '13px';
-    headerRow.appendChild(fileSummary);
+  // Add summary for this policy: Uncovered lines first, then Covered, then Total
+  const totalLines = fileCoveredLines + fileNotCoveredLines;
+  const fileSummary = document.createElement('span');
+  fileSummary.innerHTML = `<span style='margin-left:12px;'><strong>Uncovered lines:</strong> ${fileNotCoveredLines}</span> <span style='margin-left:12px;'><strong>Covered lines:</strong> ${fileCoveredLines}</span> <span style='margin-left:12px;'><strong>Total lines:</strong> ${totalLines}</span>`;
+  fileSummary.style.color = 'var(--muted)';
+  fileSummary.style.fontSize = '13px';
+  headerRow.appendChild(fileSummary);
 
     collapsible.appendChild(headerRow);
 
@@ -341,6 +430,7 @@ async function showPolicyFileSelector(coveragePath) {
     collapsible.appendChild(codeWrap);
 
     container.appendChild(collapsible);
+    collapsibles.push({collapsible, codeWrap, toggleBtn, headerRow, collapseIcon});
 
     // Fetch code and coverage, then render
     try {
@@ -354,12 +444,17 @@ async function showPolicyFileSelector(coveragePath) {
       for(let i=0;i<lines.length;i++){
         const lineNumber = i+1;
         const tr = document.createElement('tr');
+        tr.id = `${policyPrefix}-L${lineNumber}-row`;
         // Determine if this line should be ignored (non-executable)
         const trimmed = lines[i].trim();
+        const isComment = trimmed.startsWith('#');
+        const isImport = trimmed.startsWith('import ');
         const isIgnored =
           trimmed === '' ||
           trimmed === '}' ||
-          trimmed.startsWith('package ');
+          trimmed.startsWith('package ') ||
+          isImport ||
+          isComment;
         if (isIgnored) {
           tr.classList.add('ignored');
         } else if(coverageData){
@@ -368,7 +463,15 @@ async function showPolicyFileSelector(coveragePath) {
         }
         const tdLn = document.createElement('td');
         tdLn.className = 'ln';
-        tdLn.textContent = lineNumber;
+        // The visible line number is a styled anchor for copy/share
+        const a = document.createElement('a');
+        a.href = `#${policyPrefix}-L${lineNumber}`;
+        a.id = `${policyPrefix}-L${lineNumber}`;
+        a.textContent = lineNumber;
+        a.style.textDecoration = 'none';
+        a.style.color = 'inherit';
+        a.style.cursor = 'default';
+        tdLn.appendChild(a);
         const tdCode = document.createElement('td');
         tdCode.className = 'code';
         tdCode.innerHTML = tokenizeRego(lines[i] || '');
@@ -412,6 +515,36 @@ async function showPolicyFileSelector(coveragePath) {
       collapsible.appendChild(errMsg);
     }
   }
+
+  // Add expand/collapse all/auto logic
+  btnExpand.addEventListener('click', () => {
+    collapsibles.forEach(({codeWrap, toggleBtn, collapseIcon}) => {
+      codeWrap.style.display = '';
+      toggleBtn.style.display = 'flex';
+      collapseIcon.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2"/></svg>';
+    });
+  });
+  btnCollapse.addEventListener('click', () => {
+    collapsibles.forEach(({codeWrap, toggleBtn, collapseIcon}) => {
+      codeWrap.style.display = 'none';
+      toggleBtn.style.display = 'none';
+      collapseIcon.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,10 8,6 12,10" fill="none" stroke="#888" stroke-width="2"/></svg>';
+    });
+  });
+  btnAuto.addEventListener('click', () => {
+    // Expand the first policy, collapse the rest
+    collapsibles.forEach(({codeWrap, toggleBtn, collapseIcon}, idx) => {
+      if(idx === 0){
+        codeWrap.style.display = '';
+        toggleBtn.style.display = 'flex';
+        collapseIcon.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2"/></svg>';
+      } else {
+        codeWrap.style.display = 'none';
+        toggleBtn.style.display = 'none';
+        collapseIcon.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,10 8,6 12,10" fill="none" stroke="#888" stroke-width="2"/></svg>';
+      }
+    });
+  });
 }
 
 // FIX: Define KEYWORDS and BUILTINS before tokenizeRego
@@ -503,7 +636,15 @@ function renderCodeTable(codeText, coverageData){
     }
     const tdLn = document.createElement('td');
     tdLn.className = 'ln';
-    tdLn.textContent = lineNumber;
+    // The visible line number is a styled anchor for copy/share
+    const a = document.createElement('a');
+    a.href = `#policy1-L${lineNumber}`;
+    a.id = `policy1-L${lineNumber}`;
+    a.textContent = lineNumber;
+    a.style.textDecoration = 'none';
+    a.style.color = 'inherit';
+    a.style.cursor = 'default';
+    tdLn.appendChild(a);
 
     const tdCode = document.createElement('td');
     tdCode.className = 'code';
@@ -626,12 +767,17 @@ async function renderPolicyCard(container, f, covData, covText) {
     for(let i=0;i<lines.length;i++){
       const lineNumber = i+1;
       const tr = document.createElement('tr');
+      tr.id = `${policyPrefix}-L${lineNumber}-row`;
       // Determine if this line should be ignored (non-executable)
       const trimmed = lines[i].trim();
+      const isComment = trimmed.startsWith('#');
+      const isImport = trimmed.startsWith('import ');
       const isIgnored =
         trimmed === '' ||
         trimmed === '}' ||
-        trimmed.startsWith('package ');
+        trimmed.startsWith('package ') ||
+        isImport ||
+        isComment;
       if (isIgnored) {
         tr.classList.add('ignored');
       } else if(coverageData){
@@ -640,7 +786,15 @@ async function renderPolicyCard(container, f, covData, covText) {
       }
       const tdLn = document.createElement('td');
       tdLn.className = 'ln';
-      tdLn.textContent = lineNumber;
+      // The visible line number is a styled anchor for copy/share
+      const a = document.createElement('a');
+      a.href = `#policy1-L${lineNumber}`;
+      a.id = `policy1-L${lineNumber}`;
+      a.textContent = lineNumber;
+      a.style.textDecoration = 'none';
+      a.style.color = 'inherit';
+      a.style.cursor = 'default';
+      tdLn.appendChild(a);
       const tdCode = document.createElement('td');
       tdCode.className = 'code';
       tdCode.innerHTML = tokenizeRego(lines[i] || '');
@@ -712,6 +866,215 @@ if(coverageParam){
   document.getElementById('fileName').textContent = 'none (use ?coverage=...)';
   document.getElementById('viewer').style.display = 'none';
 }
+</script>
+</script>
+<script>
+// Add copy-to-clipboard logic for all copy buttons in the report (for static HTML output)
+window.addEventListener('DOMContentLoaded', function() {
+  // Find all policy containers
+  const policyDivs = Array.from(document.querySelectorAll('div')).filter(div =>
+    div.style && div.style.borderRadius === '6px' && div.querySelector('h2')
+  );
+  policyDivs.forEach(div => {
+    // Find the copy button (second button in header)
+    const headerRow = div.querySelector('div');
+    if (!headerRow) return;
+    const buttons = headerRow.querySelectorAll('button');
+    if (buttons.length < 2) return;
+    const copyBtn = buttons[1];
+    // Find the code lines in the code table inside this policy
+    const codeTable = div.querySelector('.code-table');
+    if (!codeTable) return;
+    // On click, copy all code lines (plain text, not HTML)
+    copyBtn.addEventListener('mousedown', function(e) { e.stopPropagation(); });
+    copyBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      // Get all code lines as text
+      const codeLines = Array.from(codeTable.querySelectorAll('td.code')).map(td => td.textContent);
+      const codeText = codeLines.join('\n');
+      navigator.clipboard.writeText(codeText).then(() => {
+        copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copied!</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/><polyline points="7,13 10,16 15,9" fill="none" stroke="#4caf50" stroke-width="2"/></svg>';
+        setTimeout(() => {
+          copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy policy to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>';
+        }, 1200);
+      }, () => {
+        copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy failed</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/><line x1="7" y1="7" x2="13" y2="13" stroke="#e53935" stroke-width="2"/><line x1="13" y1="7" x2="7" y2="13" stroke="#e53935" stroke-width="2"/></svg>';
+        setTimeout(() => {
+          copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy policy to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>';
+        }, 1200);
+      });
+    });
+  });
+});
+</script>
+</body>
+<script id="policy-controls-js">
+// Policy controls for static HTML report
+window.addEventListener('DOMContentLoaded', function() {
+  // Expand/collapse and highlight toggling for static report
+  // Find the label row with the three buttons
+  const labelRow = Array.from(document.querySelectorAll('div')).find(div =>
+    div.querySelector && div.querySelector('strong') && div.querySelector('strong').textContent === 'Policy file coverage:'
+  );
+  if (!labelRow) return;
+  const btns = labelRow.querySelectorAll('button');
+  if (btns.length < 3) return;
+  const [btnAuto, btnExpand, btnCollapse] = btns;
+  // Find all collapsible policy containers
+  const collapsibles = Array.from(document.querySelectorAll('div')).filter(div =>
+    div.style && div.style.borderRadius === '6px' && div.querySelector('h2')
+  );
+  // For each, get codeWrap, toggleBtn, headerRow, collapseIcon
+  const getParts = (collapsible) => {
+    const codeWrap = collapsible.querySelector('.code-wrap');
+    const toggleBtn = collapsible.querySelector('button');
+    const headerRow = collapsible.querySelector('div');
+    const collapseIcon = headerRow ? headerRow.querySelector('span') : null;
+    // Find copy button: it's the second button in the header
+    const buttons = headerRow ? headerRow.querySelectorAll('button') : [];
+    const copyBtn = buttons.length > 1 ? buttons[1] : null;
+    return {codeWrap, toggleBtn, headerRow, collapseIcon, copyBtn};
+  };
+  // Expand All
+  btnExpand.addEventListener('click', () => {
+    collapsibles.forEach(collapsible => {
+      const {codeWrap, toggleBtn, collapseIcon} = getParts(collapsible);
+      if (codeWrap) codeWrap.style.display = '';
+      if (toggleBtn) toggleBtn.style.display = 'flex';
+      if (collapseIcon) collapseIcon.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2"/></svg>';
+    });
+  });
+  // Collapse All
+  btnCollapse.addEventListener('click', () => {
+    collapsibles.forEach(collapsible => {
+      const {codeWrap, toggleBtn, collapseIcon} = getParts(collapsible);
+      if (codeWrap) codeWrap.style.display = 'none';
+      if (toggleBtn) toggleBtn.style.display = 'none';
+      if (collapseIcon) collapseIcon.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,10 8,6 12,10" fill="none" stroke="#888" stroke-width="2"/></svg>';
+    });
+  });
+  // Expand Automatic (expand only policies with uncovered lines)
+  btnAuto.addEventListener('click', () => {
+    collapsibles.forEach(collapsible => {
+      const {codeWrap, toggleBtn, collapseIcon} = getParts(collapsible);
+      // Check if this policy has any missed lines
+      const codeTable = collapsible.querySelector('.code-table');
+      let hasMissed = false;
+      if (codeTable) {
+        const rows = codeTable.querySelectorAll('tbody tr');
+        hasMissed = Array.from(rows).some(r => r.classList.contains('missed') || r.dataset.missed === 'true');
+      }
+      if (hasMissed) {
+        if (codeWrap) codeWrap.style.display = '';
+        if (toggleBtn) toggleBtn.style.display = 'flex';
+        if (collapseIcon) collapseIcon.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2"/></svg>';
+      } else {
+        if (codeWrap) codeWrap.style.display = 'none';
+        if (toggleBtn) toggleBtn.style.display = 'none';
+        if (collapseIcon) collapseIcon.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,10 8,6 12,10" fill="none" stroke="#888" stroke-width="2"/></svg>';
+      }
+    });
+  });
+
+  // Highlight toggle for each policy
+  // Eye icon SVGs
+  const eyeOpen = '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Toggle coverage highlight on and off</title><path d="M10 4C5.45455 4 2.27273 8.18182 2.27273 10C2.27273 11.8182 5.45455 16 10 16C14.5455 16 17.7273 11.8182 17.7273 10C17.7273 8.18182 14.5455 4 10 4Z" stroke="#888" stroke-width="1.5"/><circle cx="10" cy="10" r="3" stroke="#888" stroke-width="1.5"/></svg>';
+  const eyeClosed = '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Show highlights</title><path d="M2 2L18 18" stroke="#888" stroke-width="1.5"/><path d="M10 4C5.45455 4 2.27273 8.18182 2.27273 10C2.27273 11.8182 5.45455 16 10 16C14.5455 16 17.7273 11.8182 17.7273 10C17.7273 8.18182 14.5455 4 10 4Z" stroke="#888" stroke-width="1.5"/><circle cx="10" cy="10" r="3" stroke="#888" stroke-width="1.5"/></svg>';
+  collapsibles.forEach(collapsible => {
+    const codeTable = collapsible.querySelector('.code-table');
+    const toggleBtn = collapsible.querySelector('button');
+    if (!codeTable || !toggleBtn) return;
+    let highlightOn = true;
+    // Save original highlight state for each row
+    const rows = codeTable.querySelectorAll('tbody tr');
+    rows.forEach(r => {
+      r.dataset.covered = r.classList.contains('covered');
+      r.dataset.missed = r.classList.contains('missed');
+      r.dataset.ignored = r.classList.contains('ignored');
+    });
+    toggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      highlightOn = !highlightOn;
+      if (!highlightOn) {
+        // Remove all highlight classes
+        rows.forEach(r => {
+          r.classList.remove('covered','missed','ignored');
+        });
+        toggleBtn.innerHTML = eyeClosed;
+      } else {
+        // Restore highlight classes
+        rows.forEach(r => {
+          if (r.dataset.covered === 'true') r.classList.add('covered');
+          if (r.dataset.missed === 'true') r.classList.add('missed');
+          if (r.dataset.ignored === 'true') r.classList.add('ignored');
+        });
+        toggleBtn.innerHTML = eyeOpen;
+      }
+    });
+    // Set initial icon
+    toggleBtn.innerHTML = eyeOpen;
+  });
+
+  // Collapse/expand for each policy header
+  collapsibles.forEach(collapsible => {
+    const {codeWrap, toggleBtn, headerRow, collapseIcon} = getParts(collapsible);
+    if (!headerRow) return;
+    let collapsed = false;
+    headerRow.addEventListener('click', () => {
+      collapsed = !collapsed;
+      if (codeWrap) codeWrap.style.display = collapsed ? 'none' : '';
+      if (toggleBtn) toggleBtn.style.display = collapsed ? 'none' : 'flex';
+      if (collapseIcon) collapseIcon.innerHTML = collapsed
+        ? '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,10 8,6 12,10" fill="none" stroke="#888" stroke-width="2"/></svg>'
+        : '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2"/></svg>';
+    });
+  });
+
+  // Copy-to-clipboard logic for copy buttons in each policy
+  collapsibles.forEach(collapsible => {
+    const {copyBtn} = getParts(collapsible);
+    if (!copyBtn) return;
+    // Find the code table inside this policy
+    const codeTable = collapsible.querySelector('.code-table');
+    if (!codeTable) return;
+    copyBtn.addEventListener('mousedown', function(e) { e.stopPropagation(); });
+    copyBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      // Get all code lines as text
+      const codeLines = Array.from(codeTable.querySelectorAll('td.code')).map(td => td.textContent);
+      const codeText = codeLines.join('\n');
+      navigator.clipboard.writeText(codeText).then(() => {
+        copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copied!</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/><polyline points="7,13 10,16 15,9" fill="none" stroke="#4caf50" stroke-width="2"/></svg>';
+        setTimeout(() => {
+          copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy policy to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>';
+        }, 1200);
+      }, () => {
+        copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy failed</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/><line x1="7" y1="7" x2="13" y2="13" stroke="#e53935" stroke-width="2"/><line x1="13" y1="7" x2="7" y2="13" stroke="#e53935" stroke-width="2"/></svg>';
+        setTimeout(() => {
+          copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy policy to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>';
+        }, 1200);
+      });
+    });
+  });
+
+  setTimeout(function() {
+    if (window.location.hash && /^#policy\d+-L\d+$/.test(window.location.hash)) {
+      const anchor = window.location.hash.substring(1);
+      const el = document.getElementById(anchor);
+      if (el) {
+        // Try closest('tr'), fallback to parentNode.parentNode
+        let tr = el.closest && el.closest('tr');
+        if (!tr && el.parentNode && el.parentNode.parentNode && el.parentNode.parentNode.tagName === 'TR') {
+          tr = el.parentNode.parentNode;
+        }
+        if (tr) {
+          tr.classList.add('shimmer');
+          setTimeout(() => tr.classList.remove('shimmer'), 3000);
+        }
+      }
+    }
+  }, 0);
+});
 </script>
 </body>
 </html>
