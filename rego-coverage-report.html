@@ -292,17 +292,40 @@
     <span><span class="legend-swatch ignored-swatch"></span>Non-executable/ignored line</span>
   </div>
   <div class="viewer" id="viewer" style="display:none;">
-    <div class="toolbar" id="toolbar">
-      <div style="flex:1"></div>
-      <div style="color:var(--muted); font-size:13px">Note: this viewer highlights coverage ranges from the JSON format
-        you provided.</div>
-    </div>
 
-    <div class="code-wrap" id="codeWrap">
+    <div id="coverage-main" style="margin: 16px 0; border: 2px solid #bbb; border-radius: 10px; padding: 18px 10px 10px 10px; background: #f8f8f8;">
+
+          <div class="code-wrap" id="codeWrap">
       <table class="code-table" id="codeTable">
         <tbody></tbody>
       </table>
+
+    <div id="coverage-pre-container" style="margin: 0 0 24px 0; border: 1px solid #eee; border-radius: 6px; background: #fafbfc;">
+    <div id="coverage-pre-header"
+      style="display: flex; align-items: center; padding: 10px 12px; cursor: pointer; user-select: none;">
+      <span id="coverage-pre-collapse" style="margin-right: 10px;">
+        <svg width="16" height="16" viewBox="0 0 16 16">
+          <polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2" />
+        </svg>
+      </span>
+      <h2 style="margin: 0; flex: 1; font-size: 16px;">Raw coverage.json output</h2>
+      <button id="coverage-pre-copy" title="Copy coverage.json" aria-label="Copy coverage.json"
+        style="background: none; border: none; cursor: pointer; padding: 0 0 0 8px; display: flex; align-items: center; height: 28px; margin-left: 8px;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <title>Copy coverage.json to clipboard</title>
+          <rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff" />
+          <rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7" />
+        </svg>
+      </button>
     </div>
+    <pre id="coverage-pre"
+      style="margin: 0; padding: 16px; font-size: 14px; overflow-x: auto; border-radius: 0 0 6px 6px; background: #fff; border-top: 1px solid #eee;">
+    </pre>
+  </div>
+    </div>
+
+    </div>
+
   </div>
 
   <script>
@@ -324,6 +347,11 @@
       console.log("[Info] - reading all policies at " + coveragePath);
       try {
         const covText = await fetchTextOrThrow(coveragePath);
+        const pre = document.getElementById('coverage-pre');
+        if (pre) {
+          pre.textContent = covText;
+          setupCoveragePreControls();
+        }
         const data = JSON.parse(covText);
         const files = data.files || {};
         // Only include .rego files that do NOT have 'test' in their name or full path
@@ -337,15 +365,12 @@
     // New: UI for selecting and displaying all policy files
     async function showPolicyFileSelector(coveragePath) {
       console.log("[Info] - loading " + coveragePath);
-      const files = await listPolicyFiles(coveragePath);
+  const files = await listPolicyFiles(coveragePath);
+  // Make the viewer section visible after loading coverage
+  const viewerElem = document.getElementById('viewer');
+  if (viewerElem) viewerElem.style.display = '';
       // Main container for all rendered policies, with grey border and legend
-      const container = document.createElement('div');
-      container.id = 'coverage-main';
-      container.style.margin = '16px 0';
-      container.style.border = '2px solid #bbb';
-      container.style.borderRadius = '10px';
-      container.style.padding = '18px 10px 10px 10px';
-      container.style.background = '#f8f8f8';
+      const container = document.getElementById('coverage-main');
 
       // Move the legend into this container, and add 'Policy file coverage' above it
       const legend = document.querySelector('.legend');
@@ -968,6 +993,7 @@
       }
     }
 
+
         // --- Render verbose.txt as a test results table inside verbose-main ---
     async function renderVerbose(verbosePath) {
 
@@ -1072,6 +1098,18 @@
       } catch (e) { /* ignore */ }
     }
     document.addEventListener('DOMContentLoaded', function () {
+      // Collapse coverage-pre and verbose-pre by default
+      function collapsePre(headerId, preId, collapseId) {
+        const header = document.getElementById(headerId);
+        const pre = document.getElementById(preId);
+        const collapse = document.getElementById(collapseId);
+        if (header && pre && collapse) {
+          pre.style.display = 'none';
+          collapse.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,10 8,6 12,10" fill="none" stroke="#888" stroke-width="2"/></svg>';
+        }
+      }
+      collapsePre('coverage-pre-header', 'coverage-pre', 'coverage-pre-collapse');
+      collapsePre('verbose-pre-header', 'verbose-pre', 'verbose-pre-collapse');
       renderVerbose('/verbose.txt');
     });
 
@@ -1298,7 +1336,42 @@
         }
       }
     }, 0);
+
+    setupCoveragePreControls();
   }
+
+              // Attach collapse/copy logic for verbose-pre after it is rendered
+        function setupCoveragePreControls() {
+          const preHeader = document.getElementById('coverage-pre-header');
+          const preCollapse = document.getElementById('coverage-pre-collapse');
+          const preElem = document.getElementById('coverage-pre');
+          const copyBtn = document.getElementById('coverage-pre-copy');
+          let collapsed = false;
+          if (preHeader && preElem && preCollapse) {
+            preHeader.addEventListener('click', function (e) {
+              if (e.target === copyBtn) return;
+              collapsed = !collapsed;
+              preElem.style.display = collapsed ? 'none' : '';
+              preCollapse.innerHTML = collapsed
+                ? '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,10 8,6 12,10" fill="none" stroke="#888" stroke-width="2"/></svg>'
+                : '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2"/></svg>';
+            });
+          }
+          if (copyBtn && preElem) {
+            copyBtn.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+            copyBtn.addEventListener('click', function (e) {
+              e.stopPropagation();
+              navigator.clipboard.writeText(preElem.textContent).then(() => {
+                copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copied!</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/><polyline points="7,13 10,16 15,9" fill="none" stroke="#4caf50" stroke-width="2"/></svg>';
+                setTimeout(() => {
+                  copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy verbose.txt to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>';
+                }, 1200);
+              });
+            });
+          }
+        }
+
+
   window.addEventListener('DOMContentLoaded', setupPolicyControls);
 
         // Attach collapse/copy logic for verbose-pre after it is rendered
@@ -1371,7 +1444,8 @@
       </button>
     </div>
     <pre id="verbose-pre"
-      style="margin: 0; padding: 16px; font-size: 14px; overflow-x: auto; border-radius: 0 0 6px 6px; background: #fff; border-top: 1px solid #eee;"></pre>
+      style="margin: 0; padding: 16px; font-size: 14px; overflow-x: auto; border-radius: 0 0 6px 6px; background: #fff; border-top: 1px solid #eee;">
+    </pre>
   </div>
 
 </div>
