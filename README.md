@@ -15,30 +15,37 @@ This project demonstrates how to write, test, and generate coverage reports for 
 
 ## Quick Start
 
-1. Run tests using the opa executable script:
-    - Make sure the `opa` binary is present in the project root (see Setup below).
-    - Usage examples:
-       - Run all tests:
-          ```sh
-          .opa test .
-          ```
-       - Run specific tests:
-          ```sh
-          .opa test somespecific/folder/policy.rego  somespecific/folder/test.rego  somespecific/folder/data.json
-          ```
 
-2. Compile Docker image: <code>docker build -t opa-test-report .</code>or to specify platform<code>docker build --platform=linux/amd64 -t opa-test-report .</code>
+1. Run tests and generate reports using Docker (recommended):
+      - Build the Docker image (see below), then run:
+         ```sh
+         docker run --rm -v "$PWD/output:/app/output" opa-test-report
+         ```
+      - This will generate `coverage.json` and `verbose.txt` in the container, and you can use the web or static report options below.
+
+2. Build the Docker image:
+   ```sh
+   docker build -t opa-test-report .
+   # Or to specify platform:
+   docker build --platform=linux/amd64 -t opa-test-report .
+   ```
 3. Run as a webserver (port 3000): <code>docker run --rm -p 3000:3000 opa-test-report web</code>
       - Visit: [http://localhost:3000](http://localhost:3000)
          Node serves the rego-coverage-report.html at the root address. And upon loading the page expects the coverage report to be at /coverage.json and the verbose report at /verbose.txt.
       - Enter a bash shell in the container:<br>
          <code>docker run -it --rm opa-test-report bash</code>
-4. Generate a static HTML report: <code>docker run --rm -v "$PWD/output:/app/output" opa-test-report custom-report.html</code>
-    - The report will be saved as <code>output/custom-report.html</code>.
+4. Generate a static HTML report (using Puppeteer/Chromium):
+   ```sh
+   docker run --rm -v "$PWD/output:/app/output" opa-test-report custom-report.html
+   ```
+   - The report will be saved as `output/custom-report.html`.
+   - This uses Puppeteer/Chromium to render the HTML as it appears in the browser.
 
 ## Setup
 
-### 1. Download OPA
+
+### 1. (Optional) Download OPA manually
+If you want to run OPA locally (not via Docker), download the binary for your OS:
 
 #### For macOS (Darwin/amd64):
 ```sh
@@ -47,7 +54,6 @@ chmod +x opa
 ```
 
 #### For Windows:
-Download the OPA executable for Windows:
 ```sh
 curl -L -o opa.exe https://openpolicyagent.org/downloads/latest/opa_windows_amd64.exe
 ```
@@ -82,18 +88,13 @@ Or download manually from: [https://openpolicyagent.org/downloads/latest/](https
 
 ### 4. View the coverage report
 - Open your browser and go to:
-   [http://localhost:3000/?coverage=coverage.json](http://localhost:3000/?coverage=coverage.json)
+   [http://localhost:3000](http://localhost:3000)
 
 ## Notes
-- Only the following files are included in the Docker image:
+- The Docker image includes:
    - `rego-coverage-report.html`
-   - `coverage.json`
-   - All `*.rego` files (except `*_test.rego` are not used in the container)
-   - `entrypoint.sh`
-   - `render_and_exit.sh`
-   - `render.js`
-   - `server.js`
-   - `package.json`
+   - All `*.rego` files in `policies/`, test files in `tests/`, and data in `test_data/`
+   - `entrypoint.sh`, `render_and_exit.sh`, `render.js`, `server.js`, `package.json`
 - Make sure your test rules are named with underscores (e.g., `test_allow_admin`) and do not shadow the built-in `input` variable.
 - Update the OPA binary download link if you are on a different OS/architecture. See the [OPA downloads page](https://openpolicyagent.org/downloads/latest/) for more options.
 - You can repeat the test and coverage steps for other policy/test file pairs (e.g., `policy_two.rego`, `policy_two_test.rego`).
@@ -102,7 +103,7 @@ Or download manually from: [https://openpolicyagent.org/downloads/latest/](https
 
 ## Troubleshooting: Stopping a Stuck Web Server
 
-If you try to start the Python web server and get an error that port 3000 is already in use, you may have a previous server process still running. To stop it:
+If you try to start the Node web server and get an error that port 3000 is already in use, you may have a previous server process still running. To stop it:
 
 1. Find the process using port 3000:
    ```sh
