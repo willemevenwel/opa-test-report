@@ -968,7 +968,112 @@
       }
     }
 
+        // --- Render verbose.txt as a test results table inside verbose-main ---
+    async function renderVerbose(verbosePath) {
 
+      try {
+        const response = await fetch(verbosePath);
+        if (!response.ok) return;
+        const text = await response.text();
+
+        const lines = text.split('\n');
+        const tableData = [];
+        let currentFile = null;
+        const fileHeaderRe = /^([\w\/-]+\.rego):$/;
+        const testLineRe = /^([^\s:]+):\s+(PASS|FAIL)\s+\(([^)]+)\)$/;
+        for (const line of lines) {
+          const fileMatch = line.match(fileHeaderRe);
+          if (fileMatch) {
+            currentFile = fileMatch[1];
+            continue;
+          }
+          const testMatch = line.match(testLineRe);
+          if (testMatch && currentFile) {
+            tableData.push({
+              file: currentFile,
+              test: testMatch[1],
+              result: testMatch[2],
+              time: testMatch[3]
+            });
+          }
+        }
+        if (!tableData.length) return;
+        const table = document.getElementById('table-verbose');
+        table.className = 'verbose-table';
+        table.style.margin = '32px 0 24px 0';
+        table.style.borderCollapse = 'collapse';
+        table.innerHTML = `
+        <thead>
+          <tr>
+            <th style="padding:6px 12px; border:1px solid #ccc;">Test File</th>
+            <th style="padding:6px 12px; border:1px solid #ccc;">Test Name</th>
+            <th style="padding:6px 12px; border:1px solid #ccc;">Result</th>
+            <th style="padding:6px 12px; border:1px solid #ccc;">Time</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableData.map(row => {
+            // Determine status class
+            let statusClass = 'status-other';
+            if (row.result === 'PASS') statusClass = 'status-pass';
+            else if (row.result === 'FAIL') statusClass = 'status-fail';
+            // Determine time class: only highlight if >100ms and unit is ms
+            let timeClass = '';
+            const msMatch = row.time.match(/^([0-9]+)\s*ms$/i);
+            if (msMatch && parseInt(msMatch[1], 10) > 100) timeClass = 'time-slow';
+            return `
+            <tr>
+              <td style="padding:6px 12px; border:1px solid #eee;">${row.file}</td>
+              <td style="padding:6px 12px; border:1px solid #eee;">${row.test}</td>
+              <td class="${statusClass}" style="padding:6px 12px; border:1px solid #eee;">${row.result}</td>
+              <td class="${timeClass}" style="padding:6px 12px; border:1px solid #eee;">${row.time}</td>
+            </tr>
+            `;
+          }).join('')}
+        </tbody>
+      `;
+
+        // Fill the collapsible pre with the raw verbose.txt content
+        const pre = document.getElementById('verbose-pre');
+        if (pre) pre.textContent = text;
+        setupVerbosePreControls();
+
+        // Attach collapse/copy logic for verbose-pre after it is rendered
+        function setupVerbosePreControls() {
+          const preHeader = document.getElementById('verbose-pre-header');
+          const preCollapse = document.getElementById('verbose-pre-collapse');
+          const preElem = document.getElementById('verbose-pre');
+          const copyBtn = document.getElementById('verbose-pre-copy');
+          let collapsed = false;
+          if (preHeader && preElem && preCollapse) {
+            preHeader.addEventListener('click', function (e) {
+              if (e.target === copyBtn) return;
+              collapsed = !collapsed;
+              preElem.style.display = collapsed ? 'none' : '';
+              preCollapse.innerHTML = collapsed
+                ? '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,10 8,6 12,10" fill="none" stroke="#888" stroke-width="2"/></svg>'
+                : '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2"/></svg>';
+            });
+          }
+          if (copyBtn && preElem) {
+            copyBtn.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+            copyBtn.addEventListener('click', function (e) {
+              e.stopPropagation();
+              navigator.clipboard.writeText(preElem.textContent).then(() => {
+                copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copied!</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/><polyline points="7,13 10,16 15,9" fill="none" stroke="#4caf50" stroke-width="2"/></svg>';
+                setTimeout(() => {
+                  copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy verbose.txt to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>';
+                }, 1200);
+              });
+            });
+          }
+        }
+
+      } catch (e) { /* ignore */ }
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+      renderVerbose('/verbose.txt');
+    });
 
     /* ---------- File loading & orchestration ---------- */
 
@@ -1195,6 +1300,41 @@
     }, 0);
   }
   window.addEventListener('DOMContentLoaded', setupPolicyControls);
+
+        // Attach collapse/copy logic for verbose-pre after it is rendered
+        function setupVerbosePreControls() {
+          const preHeader = document.getElementById('verbose-pre-header');
+          const preCollapse = document.getElementById('verbose-pre-collapse');
+          const preElem = document.getElementById('verbose-pre');
+          const copyBtn = document.getElementById('verbose-pre-copy');
+          let collapsed = false;
+          if (preHeader && preElem && preCollapse) {
+            preHeader.addEventListener('click', function (e) {
+              if (e.target === copyBtn) return;
+              collapsed = !collapsed;
+              preElem.style.display = collapsed ? 'none' : '';
+              preCollapse.innerHTML = collapsed
+                ? '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,10 8,6 12,10" fill="none" stroke="#888" stroke-width="2"/></svg>'
+                : '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2"/></svg>';
+            });
+          }
+          if (copyBtn && preElem) {
+            copyBtn.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+            copyBtn.addEventListener('click', function (e) {
+              e.stopPropagation();
+              navigator.clipboard.writeText(preElem.textContent).then(() => {
+                copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copied!</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/><polyline points="7,13 10,16 15,9" fill="none" stroke="#4caf50" stroke-width="2"/></svg>';
+                setTimeout(() => {
+                  copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy verbose.txt to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>';
+                }, 1200);
+              });
+            });
+          }
+        }
+
+          window.addEventListener('DOMContentLoaded', setupVerbosePreControls);
+
+
 </script>
 
 <div id="verbose-main"
@@ -1234,114 +1374,6 @@
       style="margin: 0; padding: 16px; font-size: 14px; overflow-x: auto; border-radius: 0 0 6px 6px; background: #fff; border-top: 1px solid #eee;"></pre>
   </div>
 
-  <script>
-    // --- Render verbose.txt as a test results table inside verbose-main ---
-    async function renderVerbose(verbosePath) {
-
-      try {
-        const response = await fetch(verbosePath);
-        if (!response.ok) return;
-        const text = await response.text();
-
-        const lines = text.split('\n');
-        const tableData = [];
-        let currentFile = null;
-        const fileHeaderRe = /^([\w\/-]+\.rego):$/;
-        const testLineRe = /^([^\s:]+):\s+(PASS|FAIL)\s+\(([^)]+)\)$/;
-        for (const line of lines) {
-          const fileMatch = line.match(fileHeaderRe);
-          if (fileMatch) {
-            currentFile = fileMatch[1];
-            continue;
-          }
-          const testMatch = line.match(testLineRe);
-          if (testMatch && currentFile) {
-            tableData.push({
-              file: currentFile,
-              test: testMatch[1],
-              result: testMatch[2],
-              time: testMatch[3]
-            });
-          }
-        }
-        if (!tableData.length) return;
-        const table = document.getElementById('table-verbose');
-        table.className = 'verbose-table';
-        table.style.margin = '32px 0 24px 0';
-        table.style.borderCollapse = 'collapse';
-        table.innerHTML = `
-        <thead>
-          <tr>
-            <th style="padding:6px 12px; border:1px solid #ccc;">Test File</th>
-            <th style="padding:6px 12px; border:1px solid #ccc;">Test Name</th>
-            <th style="padding:6px 12px; border:1px solid #ccc;">Result</th>
-            <th style="padding:6px 12px; border:1px solid #ccc;">Time</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${tableData.map(row => {
-            // Determine status class
-            let statusClass = 'status-other';
-            if (row.result === 'PASS') statusClass = 'status-pass';
-            else if (row.result === 'FAIL') statusClass = 'status-fail';
-            // Determine time class: only highlight if >100ms and unit is ms
-            let timeClass = '';
-            const msMatch = row.time.match(/^([0-9]+)\s*ms$/i);
-            if (msMatch && parseInt(msMatch[1], 10) > 100) timeClass = 'time-slow';
-            return `
-            <tr>
-              <td style="padding:6px 12px; border:1px solid #eee;">${row.file}</td>
-              <td style="padding:6px 12px; border:1px solid #eee;">${row.test}</td>
-              <td class="${statusClass}" style="padding:6px 12px; border:1px solid #eee;">${row.result}</td>
-              <td class="${timeClass}" style="padding:6px 12px; border:1px solid #eee;">${row.time}</td>
-            </tr>
-            `;
-          }).join('')}
-        </tbody>
-      `;
-
-        // Fill the collapsible pre with the raw verbose.txt content
-        const pre = document.getElementById('verbose-pre');
-        if (pre) pre.textContent = text;
-        setupVerbosePreControls();
-
-        // Attach collapse/copy logic for verbose-pre after it is rendered
-        function setupVerbosePreControls() {
-          const preHeader = document.getElementById('verbose-pre-header');
-          const preCollapse = document.getElementById('verbose-pre-collapse');
-          const preElem = document.getElementById('verbose-pre');
-          const copyBtn = document.getElementById('verbose-pre-copy');
-          let collapsed = false;
-          if (preHeader && preElem && preCollapse) {
-            preHeader.addEventListener('click', function (e) {
-              if (e.target === copyBtn) return;
-              collapsed = !collapsed;
-              preElem.style.display = collapsed ? 'none' : '';
-              preCollapse.innerHTML = collapsed
-                ? '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,10 8,6 12,10" fill="none" stroke="#888" stroke-width="2"/></svg>'
-                : '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2"/></svg>';
-            });
-          }
-          if (copyBtn && preElem) {
-            copyBtn.addEventListener('mousedown', function (e) { e.stopPropagation(); });
-            copyBtn.addEventListener('click', function (e) {
-              e.stopPropagation();
-              navigator.clipboard.writeText(preElem.textContent).then(() => {
-                copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copied!</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/><polyline points="7,13 10,16 15,9" fill="none" stroke="#4caf50" stroke-width="2"/></svg>';
-                setTimeout(() => {
-                  copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy verbose.txt to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>';
-                }, 1200);
-              });
-            });
-          }
-        }
-
-      } catch (e) { /* ignore */ }
-    }
-    document.addEventListener('DOMContentLoaded', function () {
-      renderVerbose('/verbose.txt');
-    });
-  </script>
 </div>
 
 <div id="footer">
