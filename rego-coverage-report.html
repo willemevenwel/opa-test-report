@@ -226,58 +226,47 @@ async function listPolicyFiles(coveragePath) {
 async function showPolicyFileSelector(coveragePath) {
   console.log("[Info] - loading " + coveragePath);
   const files = await listPolicyFiles(coveragePath);
+  // Main container for all rendered policies, with grey border and legend
   const container = document.createElement('div');
+  container.id = 'coverage-main';
   container.style.margin = '16px 0';
-  // Add label and buttons
-  const labelRow = document.createElement('div');
-  labelRow.style.display = 'flex';
-  labelRow.style.alignItems = 'center';
-  labelRow.style.gap = '16px';
-        // Label and buttons for policy file coverage
-  const label = document.createElement('strong');
-  label.textContent = 'Policy file coverage:';
-  labelRow.appendChild(label);
+  container.style.border = '2px solid #bbb';
+  container.style.borderRadius = '10px';
+  container.style.padding = '18px 10px 10px 10px';
+  container.style.background = '#f8f8f8';
+
+  // Move the legend into this container, and add 'Policy file coverage' above it
+  const legend = document.querySelector('.legend');
+  if (legend) {
+    legend.parentNode.removeChild(legend);
+    // Add title above legend
+    const legendTitle = document.createElement('div');
+    legendTitle.textContent = 'Policy file coverage';
+    legendTitle.style.fontWeight = 'bold';
+    legendTitle.style.fontSize = '16px';
+    legendTitle.style.marginBottom = '20px';
+    container.appendChild(legendTitle);
+    container.appendChild(legend);
+  }
+  // Add buttons row (no label, just buttons, nicely aligned)
+  const buttonRow = document.createElement('div');
+  buttonRow.style.display = 'flex';
+  buttonRow.style.gap = '12px';
+  buttonRow.style.margin = '8px 0 16px 0';
   // Buttons
   const btnAuto = document.createElement('button');
   btnAuto.textContent = 'Expand Automatic';
-  btnAuto.style.marginLeft = '8px';
   btnAuto.type = 'button';
-  labelRow.appendChild(btnAuto);
+  buttonRow.appendChild(btnAuto);
   const btnExpand = document.createElement('button');
   btnExpand.textContent = 'Expand All';
   btnExpand.type = 'button';
-  labelRow.appendChild(btnExpand);
+  buttonRow.appendChild(btnExpand);
   const btnCollapse = document.createElement('button');
   btnCollapse.textContent = 'Collapse All';
   btnCollapse.type = 'button';
-  labelRow.appendChild(btnCollapse);
-        // After all policies are rendered, fetch and display /verbose.txt
-        try {
-          const resp = await fetch('/verbose.txt', {cache:'no-store'});
-          if (resp.ok) {
-            const txt = await resp.text();
-            if (txt && txt.trim()) {
-              // Find the ASCII art <pre> (the last <pre> in the document)
-              const pres = document.querySelectorAll('pre');
-              const asciiPre = pres[pres.length-1];
-              if (asciiPre) {
-                // Insert a new <pre> above the ASCII art
-                const verbosePre = document.createElement('pre');
-                verbosePre.id = 'verbose-pre';
-                verbosePre.style.margin = '32px 0 0 0';
-                verbosePre.style.background = '#fff';
-                verbosePre.style.border = '1px solid #eee';
-                verbosePre.style.borderRadius = '6px';
-                verbosePre.style.padding = '16px';
-                verbosePre.style.fontSize = '14px';
-                verbosePre.style.overflowX = 'auto';
-                verbosePre.textContent = txt.trim();
-                asciiPre.parentNode.insertBefore(verbosePre, asciiPre);
-              }
-            }
-          }
-        } catch (e) { /* ignore */ }
-  container.appendChild(labelRow);
+  buttonRow.appendChild(btnCollapse);
+  container.appendChild(buttonRow);
   // Insert before .viewer
   const viewer = document.getElementById('viewer');
   viewer.parentNode.insertBefore(container, viewer);
@@ -1093,14 +1082,22 @@ window.addEventListener('DOMContentLoaded', function() {
   }, 0);
 });
 </script>
-<div id="verbose-main">
-  <script>
+
+<div id="verbose-main" style="margin: 16px; border: 2px solid #bbb; border-radius: 10px; padding: 18px 10px 0px 10px; background: #f8f8f8">
+
+  <div style="font-weight:bold; font-size:16px; margin-bottom:10px;">Unit test results - verbose</div>
+
+  <table id="table-verbose"></table>
+
+<script>
   // --- Render verbose.txt as a test results table inside verbose-main ---
-  async function renderVerboseTable(verbosePath) {
+  async function renderVerbose(verbosePath) {
+
     try {
       const response = await fetch(verbosePath);
       if (!response.ok) return;
       const text = await response.text();
+
       const lines = text.split('\n');
       const tableData = [];
       let currentFile = null;
@@ -1123,7 +1120,7 @@ window.addEventListener('DOMContentLoaded', function() {
         }
       }
       if (!tableData.length) return;
-      const table = document.createElement('table');
+      const table = document.getElementById('table-verbose');
       table.className = 'verbose-table';
       table.style.margin = '32px 0 24px 0';
       table.style.borderCollapse = 'collapse';
@@ -1147,18 +1144,17 @@ window.addEventListener('DOMContentLoaded', function() {
           `).join('')}
         </tbody>
       `;
-      // Insert as first child of verbose-main
-      const verboseMain = document.getElementById('verbose-main');
-      if (verboseMain) {
-        verboseMain.insertBefore(table, verboseMain.firstChild);
-      }
+      
     } catch (e) { /* ignore */ }
   }
   document.addEventListener('DOMContentLoaded', function() {
-    renderVerboseTable('/verbose.txt');
+    renderVerbose('/verbose.txt');
   });
   </script>
-  <pre>
+</div>
+
+<div id="footer">
+    <pre>
     Welcome to Polly Rego Policy Coverage Report utility!
 
     :::::::::::::::::::::::::::------::.+#+=::::::::::::::::::::::::::::::
@@ -1215,5 +1211,7 @@ window.addEventListener('DOMContentLoaded', function() {
     Created by @willemevenwel on GitHub
   </pre>
 </div>
+
 </body>
+
 </html>
