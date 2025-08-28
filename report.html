@@ -36,7 +36,6 @@
             setTimeout(function(){ copyBtn.title = 'Copy code'; }, 1200);
           });
         }
-        
         var summary = card.querySelector('summary');
         var icon = summary && summary.querySelector('.policy-toggle-icon');
         if (icon) {
@@ -52,6 +51,22 @@
         }
 
       });
+
+        document.querySelectorAll('details.expandable').forEach(function(details) {
+            var summary = details.querySelector('summary.expandable-header');
+            var icon = summary && summary.querySelector('.expandable-toggle-icon');
+            if (icon) {
+            function updateIcon() {
+                if (details.open) {
+                icon.style.transform = 'rotate(0deg)';
+                } else {
+                icon.style.transform = 'rotate(-90deg)';
+                }
+            }
+            details.addEventListener('toggle', updateIcon);
+            updateIcon();
+            }
+        });
       
     });
 
@@ -260,7 +275,12 @@
            <p class="muted">Select a file above to see line-by-line coverage details.</p>
             <div id="coverage-details">
                 <details class="expandable">
-                    <summary class="expandable-header">Expand for more verbose info</summary>
+                    <summary class="expandable-header" style="display:flex;align-items:center;cursor:pointer;">
+                      <span class="expandable-toggle-icon" style="display:inline-block;width:18px;height:18px;margin-right:6px;transition:transform 0.2s;">
+                        <svg viewBox="0 0 16 16" width="16" height="16" style="display:block;"><polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2"/></svg>
+                      </span>
+                      <span>Expand for more verbose info</span>
+                    </summary>
                     <div class="expandable-content">
                         <pre>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque euismod, urna eu tincidunt consectetur, nisi nisl aliquam nunc, eget aliquam massa nisl quis neque. Suspendisse potenti. Etiam euismod, urna eu tincidunt consectetur, nisi nisl aliquam nunc, eget aliquam massa nisl quis neque.</pre>
                     </div>
