@@ -134,6 +134,17 @@
       padding: 18px 20px 24px 20px;
     }
 
+    /* Coverage highlights for code-table rows */
+    tr.covered td.code {
+      background: #e6ffe6 !important;
+    }
+    tr.missed td.code {
+      background: #ffe6e6 !important;
+    }
+    tr.ignored td.code {
+      background: #e6f0ff !important;
+    }
+
 </style>
 </head>
 <body>
@@ -175,58 +186,52 @@
           <span><span style="display:inline-block;width:18px;height:18px;border-radius:3px;margin-right:6px;vertical-align:middle;border:1px solid #e6b2b2;background:#ffe6e6;"></span>Not covered line</span>
           <span><span style="display:inline-block;width:18px;height:18px;border-radius:3px;margin-right:6px;vertical-align:middle;border:1px solid #b2cbe6;background:#e6f0ff;"></span>Ignored line</span>
         </div>
-         <!-- Template policy card with placeholder data -->
-        <div class="policy-card-template card" style="margin-top:24px;">
-          <div style="display:flex;align-items:center;padding:10px 12px;">
-            <span style="margin-right:10px;">&#128196;</span>
-            <h2 style="margin:0;flex:1;font-size:16px;">template.rego <span style="font-weight:400;font-size:13px;color:var(--sq-muted);">(policies/template.rego)</span></h2>
-            <button class="eye-btn" title="Toggle highlight" aria-label="Toggle highlight" style="background:none;border:none;cursor:pointer;padding:0 8px 0 8px;display:flex;align-items:center;">
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Toggle coverage highlight on and off</title><path d="M10 4C5.45455 4 2.27273 8.18182 2.27273 10C2.27273 11.8182 5.45455 16 10 16C14.5455 16 17.7273 11.8182 17.7273 10C17.7273 8.18182 14.5455 4 10 4Z" stroke="#888" stroke-width="1.5"/><circle cx="10" cy="10" r="3" stroke="#888" stroke-width="1.5"/></svg>
-            </button>
-            <button class="copy-btn" title="Copy code" aria-label="Copy code" style="background:none;border:none;cursor:pointer;padding:0 8px 0 0;display:flex;align-items:center;">
-              <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy policy to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>
-            </button>
-            <span style="margin-left:8px;color:var(--sq-muted);font-size:14px;">88%</span>
-            <span style="margin-left:12px;color:var(--sq-muted);font-size:13px;"><strong>Uncovered lines:</strong> 12</span>
-            <span style="margin-left:12px;color:var(--sq-muted);font-size:13px;"><strong>Covered lines:</strong> 88</span>
-            <span style="margin-left:12px;color:var(--sq-muted);font-size:13px;"><strong>Total lines:</strong> 100</span>
-          </div>
-          <div class="code-wrap" style="background:#fafbfc;border-radius:6px;padding:10px 12px;margin-top:8px;">
-            <pre style="margin:0;font-family:monospace;font-size:13px;">
-            01 package example
-            02 default allow = false
-            03 allow {
-            04     input.user == "admin"
-            05 }
-            </pre>
-          </div>
-        </div>
-        <!-- Second template policy card with different placeholder data -->
+        <!-- Template policy card with placeholder data -->
         <div class="policy-card-template card" style="margin-top:16px;">
-        <div style="display:flex;align-items:center;padding:10px 12px;">
-            <span style="margin-right:10px;">&#128196;</span>
-            <h2 style="margin:0;flex:1;font-size:16px;">payment.rego <span style="font-weight:400;font-size:13px;color:var(--sq-muted);">(policies/payment.rego)</span></h2>
-            <button class="eye-btn" title="Toggle highlight" aria-label="Toggle highlight" style="background:none;border:none;cursor:pointer;padding:0 8px 0 8px;display:flex;align-items:center;">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Toggle coverage highlight on and off</title><path d="M10 4C5.45455 4 2.27273 8.18182 2.27273 10C2.27273 11.8182 5.45455 16 10 16C14.5455 16 17.7273 11.8182 17.7273 10C17.7273 8.18182 14.5455 4 10 4Z" stroke="#888" stroke-width="1.5"/><circle cx="10" cy="10" r="3" stroke="#888" stroke-width="1.5"/></svg>
-            </button>
-            <button class="copy-btn" title="Copy code" aria-label="Copy code" style="background:none;border:none;cursor:pointer;padding:0 8px 0 0;display:flex;align-items:center;">
-            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy policy to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>
-            </button>
-            <span style="margin-left:8px;color:var(--sq-muted);font-size:14px;">75%</span>
-            <span style="margin-left:12px;color:var(--sq-muted);font-size:13px;"><strong>Uncovered lines:</strong> 25</span>
-            <span style="margin-left:12px;color:var(--sq-muted);font-size:13px;"><strong>Covered lines:</strong> 75</span>
-            <span style="margin-left:12px;color:var(--sq-muted);font-size:13px;"><strong>Total lines:</strong> 100</span>
-        </div>
-        <div class="code-wrap" style="background:#fafbfc;border-radius:6px;padding:10px 12px;margin-top:8px;">
-            <pre style="margin:0;font-family:monospace;font-size:13px;">
-            01 package payment
-            02 default allow = false
-            03 allow {
-            04     input.amount < 1000
-            05     input.user == "manager"
-            06 }
-            </pre>
-        </div>
+            <div style="display:flex;align-items:center;padding:10px 12px;">
+                <span style="margin-right:10px;">&#128196;</span>
+                <h2 style="margin:0;flex:1;font-size:16px;">payment.rego <span style="font-weight:400;font-size:13px;color:var(--sq-muted);">(policies/payment.rego)</span></h2>
+                <button class="eye-btn" title="Toggle highlight" aria-label="Toggle highlight" style="background:none;border:none;cursor:pointer;padding:0 8px 0 8px;display:flex;align-items:center;">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Toggle coverage highlight on and off</title><path d="M10 4C5.45455 4 2.27273 8.18182 2.27273 10C2.27273 11.8182 5.45455 16 10 16C14.5455 16 17.7273 11.8182 17.7273 10C17.7273 8.18182 14.5455 4 10 4Z" stroke="#888" stroke-width="1.5"/><circle cx="10" cy="10" r="3" stroke="#888" stroke-width="1.5"/></svg>
+                </button>
+                <button class="copy-btn" title="Copy code" aria-label="Copy code" style="background:none;border:none;cursor:pointer;padding:0 8px 0 0;display:flex;align-items:center;">
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy policy to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>
+                </button>
+                <span style="margin-left:8px;color:var(--sq-muted);font-size:14px;">75%</span>
+                <span style="margin-left:12px;color:var(--sq-muted);font-size:13px;"><strong>Uncovered lines:</strong> 25</span>
+                <span style="margin-left:12px;color:var(--sq-muted);font-size:13px;"><strong>Covered lines:</strong> 75</span>
+                <span style="margin-left:12px;color:var(--sq-muted);font-size:13px;"><strong>Total lines:</strong> 100</span>
+            </div>
+            <div class="code-wrap" style="background:#fafbfc;border-radius:6px;padding:10px 12px;margin-top:8px;">
+                <table class="code-table" style="width:100%;border-collapse:collapse;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Courier New', monospace;font-size:13px;line-height:1.45;">
+                <tbody>
+          <tr class="covered">
+            <td class="ln"><a id="L1" href="#L1" style="color:inherit;text-decoration:none;">1</a></td>
+            <td class="code">package payment</td>
+          </tr>
+          <tr class="ignored">
+            <td class="ln"><a id="L2" href="#L2" style="color:inherit;text-decoration:none;">2</a></td>
+            <td class="code">default allow = false</td>
+          </tr>
+          <tr class="covered">
+            <td class="ln"><a id="L3" href="#L3" style="color:inherit;text-decoration:none;">3</a></td>
+            <td class="code">allow &#123;</td>
+          </tr>
+          <tr class="covered">
+            <td class="ln"><a id="L4" href="#L4" style="color:inherit;text-decoration:none;">4</a></td>
+            <td class="code">    input.amount &lt; 1000</td>
+          </tr>
+          <tr class="missed">
+            <td class="ln"><a id="L5" href="#L5" style="color:inherit;text-decoration:none;">5</a></td>
+            <td class="code">    input.user == "manager"</td>
+          </tr>
+          <tr class="covered">
+            <td class="ln"><a id="L6" href="#L6" style="color:inherit;text-decoration:none;">6</a></td>
+            <td class="code">&#125;</td>
+          </tr>
+                </tbody>
+                </table>
+            </div>
         </div>
         <div>
            <p class="muted">Select a file above to see line-by-line coverage details.</p>
