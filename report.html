@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Polly Rego Testing & Coverage Report</title>
+  <style>
+    /* SonarQube-like theme */
+    :root {
+      --sq-bg: #f5f5f5;
+      --sq-card: #fff;
+      --sq-border: #e5e5e5;
+      --sq-primary: #4e91f9;
+      --sq-muted: #888;
+      --sq-header: #232c3b;
+      --sq-table-header: #f0f4f8;
+      --sq-success: #4caf50;
+      --sq-fail: #e53935;
+      --sq-font: 'Segoe UI', 'Arial', sans-serif;
+    }
+    body {
+      background: var(--sq-bg);
+      color: #222;
+      font-family: var(--sq-font);
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background: var(--sq-header);
+      color: #fff;
+      padding: 18px 32px;
+      font-size: 1.5rem;
+      font-weight: 600;
+      letter-spacing: 1px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    main {
+      max-width: 900px;
+      margin: 32px auto;
+      background: var(--sq-card);
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+      padding: 32px 28px 40px 28px;
+      border: 1px solid var(--sq-border);
+    }
+    h1, h2, h3 {
+      color: var(--sq-header);
+      margin-top: 0;
+    }
+    .summary-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 32px;
+      background: var(--sq-table-header);
+      border-radius: 6px 6px 0 0;
+      overflow: hidden;
+    }
+    .summary-table th, .summary-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--sq-border);
+      text-align: left;
+      font-size: 1rem;
+    }
+    .summary-table th {
+      background: var(--sq-table-header);
+      color: var(--sq-header);
+      font-weight: 600;
+    }
+    .summary-table tr:last-child td {
+      border-bottom: none;
+    }
+    .coverage-pass {
+      color: var(--sq-success);
+      font-weight: 600;
+    }
+    .coverage-fail {
+      color: var(--sq-fail);
+      font-weight: 600;
+    }
+    .muted {
+      color: var(--sq-muted);
+      font-size: 0.95em;
+    }
+    .expandable-content pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #bbb;
+      border-radius: 4px;
+      background: #fafbfc;
+      padding: 10px 12px;
+      margin: 0;
+    }
+    #coverage-main, #verbose-main {
+      border: 2px solid #bbb;
+      border-radius: 8px;
+      margin-bottom: 32px;
+      background: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+      padding: 18px 20px 24px 20px;
+    }
+      background: var(--sq-card);
+      border: 1px solid var(--sq-border);
+      border-radius: 6px;
+      padding: 18px 20px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    }
+  </style>
+</head>
+<body>
+  <header>Polly Rego Testing & Coverage Report</header>
+  <main>
+    <div id="coverage-main" class="card">
+        <h1>Project Coverage Summary</h1>
+        <table class="summary-table">
+        <tr>
+            <th>File</th>
+            <th>Coverage</th>
+            <th>Covered Lines</th>
+            <th>Uncovered Lines</th>
+        </tr>
+        <tr>
+            <td>example.rego</td>
+            <td class="coverage-pass">95%</td>
+            <td>190</td>
+            <td>10</td>
+        </tr>
+        <tr>
+            <td>policy.rego</td>
+            <td class="coverage-fail">72%</td>
+            <td>72</td>
+            <td>28</td>
+        </tr>
+        </table>
+        <div>
+            <h2>Coverage Details</h2>
+            <p class="muted">Select a file above to see line-by-line coverage details.</p>
+            <div id="coverage-details">
+                <details class="expandable">
+                    <summary class="expandable-header">Expand for more verbose info</summary>
+                    <div class="expandable-content">
+                        <pre>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque euismod, urna eu tincidunt consectetur, nisi nisl aliquam nunc, eget aliquam massa nisl quis neque. Suspendisse potenti. Etiam euismod, urna eu tincidunt consectetur, nisi nisl aliquam nunc, eget aliquam massa nisl quis neque.</pre>
+                    </div>
+                </details>
+            </div>
+        </div>
+    </div>
+    <div id="verbose-main" class="card">
+        <div>
+            <h2>Verbose Details</h2>
+            <p class="muted">Select a file above to see line-by-line coverage details.</p>
+            <div id="verbose-details">
+                <details class="expandable">
+                    <summary class="expandable-header">Expand for more verbose info</summary>
+                    <div class="expandable-content">
+                        <pre>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque euismod, urna eu tincidunt consectetur, nisi nisl aliquam nunc, eget aliquam massa nisl quis neque. Suspendisse potenti. Etiam euismod, urna eu tincidunt consectetur, nisi nisl aliquam nunc, eget aliquam massa nisl quis neque.</pre>
+                    </div>
+                </details>
+            </div>
+        </div>
+    </div>
+  </main>
+</body>
+</html>
