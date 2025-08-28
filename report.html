@@ -274,9 +274,9 @@
         <h2>Coverage Details</h2>
         <!-- Legend for code highlights -->
         <div class="legend" style="margin-bottom:18px; font-size:14px; display:flex; gap:24px; align-items:center;">
-          <span><span style="display:inline-block;width:18px;height:18px;border-radius:3px;margin-right:6px;vertical-align:middle;border:1.5px solid #b2e6b2;background:#d8f6d8;"></span>Covered line</span>
-          <span><span style="display:inline-block;width:18px;height:18px;border-radius:3px;margin-right:6px;vertical-align:middle;border:1.5px solid #e6b2b2;background:#f7d8d8;"></span>Not covered line</span>
-          <span><span style="display:inline-block;width:18px;height:18px;border-radius:3px;margin-right:6px;vertical-align:middle;border:1.5px solid #b2cbe6;background:#e6f0ff;"></span>Ignored line</span>
+          <span><span class="legend-swatch covered-swatch"></span>Covered line</span>
+          <span><span class="legend-swatch uncovered-swatch"></span>Not covered line</span>
+          <span><span class="legend-swatch ignored-swatch"></span>Ignored line</span>
         </div>
         <ul id="coverage-details">
             <li>
@@ -359,10 +359,9 @@
             <div id="verbose-details">
 
                 <div class="legend" id="verbose-legend" style="margin: 10px 0 24px 0;">
-                    <span><span class="legend-swatch" style="background: #d8f6d8; border:1.5px solid #b2e6b2;"></span>PASS</span>
-                    <span><span class="legend-swatch" style="background: #f7d8d8; border:1.5px solid #e6b2b2;"></span>FAIL</span>
-                    <span><span class="legend-swatch" style="background: #e6f0ff; border:1.5px solid #b2cbe6;"></span>Other</span>
-                    <span><span class="legend-swatch" style="background: #ffeacc; border:1.5px solid #ffd699;"></span>Time &gt; 100ms</span>
+                    <span><span class="legend-swatch covered-swatch"></span>PASS</span>
+                    <span><span class="legend-swatch uncovered-swatch"></span>FAIL</span>
+                    <span><span class="legend-swatch time-slow"></span>Time &gt; 100ms</span>
                 </div>
 
                 <table id="table-verbose" class="summary-table">
