@@ -82,11 +82,27 @@ document.addEventListener('DOMContentLoaded', function () {
               var statusMap = getLineStatusMap(policy);
               lines.forEach(function(line, idx) {
                 var tr = document.createElement('tr');
-                var status = statusMap[idx+1] || '';
-                if (status) tr.className = status;
+                var lineNumber = idx + 1;
+                var trimmed = line.trim();
+                var isComment = trimmed.startsWith('#');
+                var isImport = trimmed.startsWith('import ');
+                var isIgnored =
+                  trimmed === '' ||
+                  trimmed === '}' ||
+                  trimmed.startsWith('package ') ||
+                  isImport ||
+                  isComment ||
+                  statusMap[lineNumber] === 'ignored';
+                if (isIgnored) {
+                  tr.className = 'ignored';
+                } else if (statusMap[lineNumber] === 'covered') {
+                  tr.className = 'covered';
+                } else if (statusMap[lineNumber] === 'missed') {
+                  tr.className = 'missed';
+                }
                 var tdLn = document.createElement('td');
                 tdLn.className = 'ln';
-                tdLn.innerHTML = '<a id="L' + (idx+1) + '" href="#L' + (idx+1) + '" style="color:inherit;text-decoration:none;">' + (idx+1) + '</a>';
+                tdLn.innerHTML = '<a id="L' + lineNumber + '" href="#L' + lineNumber + '" style="color:inherit;text-decoration:none;">' + lineNumber + '</a>';
                 var tdCode = document.createElement('td');
                 tdCode.className = 'code';
                 tdCode.textContent = line;
