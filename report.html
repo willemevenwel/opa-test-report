@@ -323,13 +323,13 @@
                     <td style="padding-right: 24px;"><strong>Total Policies:</strong></td>
                     <td id="totalPolicies">8</td>
                     <td style="padding-right: 24px;"><strong>Total coverage:</strong></td>
-                    <td id="covName">96%</td>
+                    <td id="totalCoveragePercentage">96%</td>
                 </tr>
                 <tr>
                     <td style="padding-right: 24px;"><strong>Covered lines:</strong></td>
-                    <td id="mainCoveredLines">30</td>
+                    <td id="totalCoveredLines">30</td>
                     <td style="padding-right: 24px;"><strong>Not covered lines:</strong></td>
-                    <td id="mainNotCoveredLines">1</td>
+                    <td id="totalNotCoveredLines">1</td>
                 </tr>
             </tbody>
         </table>
@@ -356,10 +356,10 @@
                         <button class="copy-btn" title="Copy code" aria-label="Copy code" style="background:none;border:none;cursor:pointer;padding:0 8px 0 0;display:flex;align-items:center;">
                             <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy policy to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>
                         </button>
-                        <span style="margin-left:8px;color:var(--sq-muted);font-size:14px;">75%</span>
-                        <span style="margin-left:12px;color:var(--sq-muted);font-size:13px;"><strong>Uncovered lines:</strong> 25</span>
-                        <span style="margin-left:12px;color:var(--sq-muted);font-size:13px;"><strong>Covered lines:</strong> 75</span>
-                        <span style="margin-left:12px;color:var(--sq-muted);font-size:13px;"><strong>Total lines:</strong> 100</span>
+                        <span id="covered-percentage" style="margin-left:8px;color:var(--sq-muted);font-size:14px;">75%</span>
+                        <span id="uncovered-lines" style="margin-left:12px;color:var(--sq-muted);font-size:13px;"><strong>Uncovered lines:</strong> 25</span>
+                        <span id="covered-lines" style="margin-left:12px;color:var(--sq-muted);font-size:13px;"><strong>Covered lines:</strong> 75</span>
+                        <span id="total-lines" style="margin-left:12px;color:var(--sq-muted);font-size:13px;"><strong>Total lines:</strong> 100</span>
                     </summary>
                     <div class="code-wrap" style="background:#fafbfc;border-radius:6px;padding:10px 12px;margin-top:8px;">
                         <table class="code-table" style="width:100%;border-collapse:collapse;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Courier New', monospace;font-size:13px;line-height:1.45;">
