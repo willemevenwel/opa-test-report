@@ -13,10 +13,10 @@ document.addEventListener('DOMContentLoaded', function () {
     .then(function(response) { return response.json(); })
     .then(function(data) {
       // --- Update summary stats ---
-      document.getElementById('totalPolicies').textContent = data.totalPolicies || data.policies?.length || 0;
+      document.getElementById('totalPolicies').textContent = data.totalPolicies || Object.keys(data.files || {}).length || 0;
       document.getElementById('totalCoveragePercentage').textContent = (data.totalCoveragePercentage || data.coverage || '0') + '%';
-      document.getElementById('totalCoveredLines').textContent = data.totalCoveredLines || data.coveredLines || 0;
-      document.getElementById('totalNotCoveredLines').textContent = data.totalNotCoveredLines || data.notCoveredLines || 0;
+      document.getElementById('totalCoveredLines').textContent = data.totalCoveredLines || data.covered_lines || 0;
+      document.getElementById('totalNotCoveredLines').textContent = data.totalNotCoveredLines || data.not_covered_lines || 0;
 
       // --- Render policy cards ---
       var ul = document.getElementById('coverage-details');
@@ -25,41 +25,71 @@ document.addEventListener('DOMContentLoaded', function () {
       var template = templateLi.cloneNode(true);
       ul.innerHTML = '';
 
+      // Helper to get all covered, not_covered, ignored line numbers for a file
+      function getLineStatusMap(policy) {
+        var statusMap = {};
+        if (Array.isArray(policy.covered)) {
+          policy.covered.forEach(function(r) {
+            for (var i = r.start.row; i <= (r.end.row || r.start.row); i++) statusMap[i] = 'covered';
+          });
+        }
+        if (Array.isArray(policy.not_covered)) {
+          policy.not_covered.forEach(function(r) {
+            for (var i = r.start.row; i <= (r.end.row || r.start.row); i++) statusMap[i] = 'missed';
+          });
+        }
+        if (Array.isArray(policy.ignored)) {
+          policy.ignored.forEach(function(r) {
+            for (var i = r.start.row; i <= (r.end.row || r.start.row); i++) statusMap[i] = 'ignored';
+          });
+        }
+        return statusMap;
+      }
+
+      // For each policy file, fetch its content and build the code table
       Object.entries(data.files || {}).forEach(function([path, policy]) {
+        policy.path = path;
         var li = template.cloneNode(true);
-        // Set file name and path
         var h2 = li.querySelector('h2');
         if (h2) {
+          var name = path.split('/').pop();
           h2.innerHTML =
-            (policy.name || 'Policy') +
-            ' <span style="font-weight:400;font-size:13px;color:var(--sq-muted);">(' + (policy.path || '') + ')</span>';
+            name +
+            ' <span style="font-weight:400;font-size:13px;color:var(--sq-muted);">(' + path + ')</span>';
         }
-        // Set coverage stats
         var coveredPerc = li.querySelector('#covered-percentage');
         if (coveredPerc) coveredPerc.textContent = (policy.coverage || 0) + '%';
         var uncoveredLines = li.querySelector('#uncovered-lines');
-        if (uncoveredLines) uncoveredLines.innerHTML = '<strong>Uncovered lines:</strong> ' + (policy.notCoveredLines || 0);
+        if (uncoveredLines) uncoveredLines.innerHTML = '<strong>Uncovered lines:</strong> ' + (policy.not_covered_lines || 0);
         var coveredLines = li.querySelector('#covered-lines');
-        if (coveredLines) coveredLines.innerHTML = '<strong>Covered lines:</strong> ' + (policy.coveredLines || 0);
+        if (coveredLines) coveredLines.innerHTML = '<strong>Covered lines:</strong> ' + (policy.covered_lines || 0);
         var totalLines = li.querySelector('#total-lines');
-        if (totalLines) totalLines.innerHTML = '<strong>Total lines:</strong> ' + (policy.totalLines || 0);
-        // Set code lines and highlight classes
+        if (totalLines) totalLines.innerHTML = '<strong>Total lines:</strong> ' + ((policy.covered_lines || 0) + (policy.not_covered_lines || 0));
+
         var codeTable = li.querySelector('.code-table tbody');
-        if (codeTable && Array.isArray(policy.lines)) {
+        if (codeTable) {
           codeTable.innerHTML = '';
-          policy.lines.forEach(function(line, idx) {
-            var tr = document.createElement('tr');
-            tr.className = line.status || '';
-            var tdLn = document.createElement('td');
-            tdLn.className = 'ln';
-            tdLn.innerHTML = '<a id="L' + (idx+1) + '" href="#L' + (idx+1) + '" style="color:inherit;text-decoration:none;">' + (idx+1) + '</a>';
-            var tdCode = document.createElement('td');
-            tdCode.className = 'code';
-            tdCode.textContent = line.text || '';
-            tr.appendChild(tdLn);
-            tr.appendChild(tdCode);
-            codeTable.appendChild(tr);
-          });
+          // Fetch the policy file content
+          fetch('/' + path)
+            .then(function(resp) { return resp.ok ? resp.text() : ''; })
+            .then(function(text) {
+              var lines = text.split('\n');
+              var statusMap = getLineStatusMap(policy);
+              lines.forEach(function(line, idx) {
+                var tr = document.createElement('tr');
+                var status = statusMap[idx+1] || '';
+                if (status) tr.className = status;
+                var tdLn = document.createElement('td');
+                tdLn.className = 'ln';
+                tdLn.innerHTML = '<a id="L' + (idx+1) + '" href="#L' + (idx+1) + '" style="color:inherit;text-decoration:none;">' + (idx+1) + '</a>';
+                var tdCode = document.createElement('td');
+                tdCode.className = 'code';
+                tdCode.textContent = line;
+                tr.appendChild(tdLn);
+                tr.appendChild(tdCode);
+                codeTable.appendChild(tr);
+              });
+            });
         }
         ul.appendChild(li);
       });
