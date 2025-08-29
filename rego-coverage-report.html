@@ -286,6 +286,36 @@ document.addEventListener('DOMContentLoaded', function () {
           updateIcon();
         }
       });
+
+      // --- Policy expand/collapse/auto buttons ---
+      var btnAuto = document.getElementById('coverage-btn-auto');
+      var btnExpand = document.getElementById('coverage-btn-expand');
+      var btnCollapse = document.getElementById('coverage-btn-collapse');
+      function getPolicyCards() {
+        // All details elements with .policy-card-template
+        return Array.from(document.querySelectorAll('details.policy-card-template'));
+      }
+      if (btnExpand) {
+        btnExpand.addEventListener('click', function() {
+          getPolicyCards().forEach(function(card) { card.open = true; });
+        });
+      }
+      if (btnCollapse) {
+        btnCollapse.addEventListener('click', function() {
+          getPolicyCards().forEach(function(card) { card.open = false; });
+        });
+      }
+      if (btnAuto) {
+        btnAuto.addEventListener('click', function() {
+          getPolicyCards().forEach(function(card) {
+            // Expand if there are any missed lines in the code-table
+            var missed = card.querySelector('tr.missed');
+            card.open = !!missed;
+          });
+        });
+      }
+
+
     });
 
     // --- Eye and copy button animation styles ---
@@ -296,6 +326,7 @@ document.addEventListener('DOMContentLoaded', function () {
       .copy-animate svg { transition: filter 0.2s, transform 0.2s; filter: drop-shadow(0 0 2px #4caf50); transform: scale(1.15); }
     `;
     document.head.appendChild(style);
+
 
 </script>
   
@@ -395,7 +426,7 @@ document.addEventListener('DOMContentLoaded', function () {
       box-sizing: border-box;
       border: 1px solid #bbb;
       border-radius: 4px;
-      background: #fafbfc;
+      background: #fff;
       padding: 10px 12px;
       margin-top: 10px;
     }
@@ -486,10 +517,10 @@ document.addEventListener('DOMContentLoaded', function () {
 </style>
 </head>
 <body>
-  <header>Polly Rego Testing & Coverage Report</header>
+  <header style="text-align:center;">Polly Rego Testing & Coverage Report</header>
   <main>
     <div id="coverage-main" class="card">
-        <h1>Project Coverage Summary</h1>
+  <h1 style="text-align:center;">Project Coverage Summary</h1>
         <table id="coverage-summary" class="summary-table" style="margin-bottom: 12px;">
             <tbody>
                 <tr>
@@ -506,12 +537,18 @@ document.addEventListener('DOMContentLoaded', function () {
                 </tr>
             </tbody>
         </table>
-        <h2>Coverage Details</h2>
+  <h2 style="text-align:center;">Coverage Details</h2>
         <!-- Legend for code highlights -->
         <div class="legend" style="margin-bottom:18px; font-size:14px; display:flex; gap:24px; align-items:center;">
           <span><span class="legend-swatch covered-swatch"></span>Covered line</span>
           <span><span class="legend-swatch uncovered-swatch"></span>Not covered line</span>
           <span><span class="legend-swatch ignored-swatch"></span>Ignored line</span>
+        </div>
+        <!-- Expand/Collapse/Auto buttons for policy cards -->
+        <div class="policy-controls" style="display:flex; gap:12px; margin-bottom:18px;">
+          <button id="coverage-btn-auto" type="button">Expand Automatic</button>
+          <button id="coverage-btn-expand" type="button">Expand All</button>
+          <button id="coverage-btn-collapse" type="button">Collapse All</button>
         </div>
         <ul id="coverage-details">
       <li>
@@ -588,14 +625,14 @@ document.addEventListener('DOMContentLoaded', function () {
     </div>
     <div id="verbose-main" class="card">
         <div>
-            <h2>Verbose Details</h2>
+            <h2 style="text-align:center;">Verbose Details</h2>
             <div id="verbose-details">
 
-                <div class="legend" id="verbose-legend" style="margin: 10px 0 24px 0;">
-                    <span><span class="legend-swatch covered-swatch"></span>PASS</span>
-                    <span><span class="legend-swatch uncovered-swatch"></span>FAIL</span>
-                    <span><span class="legend-swatch time-slow"></span>Time &gt; 100ms</span>
-                </div>
+        <div class="legend" id="verbose-legend" style="margin: 10px 0 24px 0;">
+          <span><span class="legend-swatch covered-swatch"></span>PASS</span>
+          <span><span class="legend-swatch uncovered-swatch"></span>FAIL</span>
+          <span><span class="legend-swatch time-slow"></span>Time &gt; 100ms</span>
+        </div>
 
                 <table id="table-verbose" class="summary-table">
                     <thead>
@@ -626,23 +663,21 @@ document.addEventListener('DOMContentLoaded', function () {
                     </tbody>
                 </table>            
             </div>
-            <div id="verbose-raw">
-                <details class="expandable">
-                    <summary class="expandable-header" style="display:flex;align-items:center;cursor:pointer;">
-                      <span class="expandable-toggle-icon" style="display:inline-block;width:18px;height:18px;margin-right:6px;transition:transform 0.2s;">
-                        <svg viewBox="0 0 16 16" width="16" height="16" style="display:block;"><polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2"/></svg>
-                      </span>
-                      <span style="flex:1;">Expand for more verbose info</span>
-                      <button class="copy-btn" title="Copy content" aria-label="Copy content" style="background:none;border:none;cursor:pointer;padding:0 0 0 8px;display:flex;align-items:center;">
-                        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>
-                      </button>
-                    <button class="eye-btn" title="Toggle highlight" aria-label="Toggle highlight" style="background:none;border:none;cursor:pointer;padding:0 8px 0 8px;display:flex;align-items:center;">
-                    </button>
-                    </summary>
-                    <div class="expandable-content">
-                        <pre>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque euismod, urna eu tincidunt consectetur, nisi nisl aliquam nunc, eget aliquam massa nisl quis neque. Suspendisse potenti. Etiam euismod, urna eu tincidunt consectetur, nisi nisl aliquam nunc, eget aliquam massa nisl quis neque.</pre>
-                    </div>
-                </details>
+            <div id="verbose-raw" style="padding-top: 15px;">
+              <details class="expandable">
+                <summary class="expandable-header" style="display:flex;align-items:center;cursor:pointer;">
+                  <span class="expandable-toggle-icon" style="display:inline-block;width:18px;height:18px;margin-right:6px;transition:transform 0.2s;">
+                    <svg viewBox="0 0 16 16" width="16" height="16" style="display:block;"><polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2"/></svg>
+                  </span>
+                  <span style="flex:1;">Expand for more verbose info</span>
+                  <button class="copy-btn" title="Copy content" aria-label="Copy content" style="background:none;border:none;cursor:pointer;padding:0 0 0 8px;display:flex;align-items:center;">
+                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>
+                  </button>
+                </summary>
+                <div class="expandable-content">
+                  <pre></pre>
+                </div>
+              </details>
             </div>
         </div>
     </div>
