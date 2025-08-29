@@ -59,7 +59,7 @@ function escapeHTML(str) {
       const clone = document.documentElement.cloneNode(true);
       // Remove all <script> tags except the one with id='policy-controls-js'
       clone.querySelectorAll("script").forEach(s => {
-        if (!(s.id && s.id === 'policy-controls-js')) {
+        if (!(s.id && s.id === 'main-js')) {
           s.remove();
         }
       });

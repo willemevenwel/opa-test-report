@@ -1,181 +1,326 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Welcome to Polly Rego Policy Coverage Report viewer.</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Polly Rego Testing & Coverage Report</title>
+  
+  <script id="generation-js">
+
+// --- Dynamic coverage report generation ---
+document.addEventListener('DOMContentLoaded', function () {
+  fetch('/coverage.json')
+    .then(function(response) { return response.json(); })
+    .then(function(data) {
+      // --- Update summary stats ---
+      document.getElementById('totalPolicies').textContent = data.totalPolicies || data.policies?.length || 0;
+      document.getElementById('totalCoveragePercentage').textContent = (data.totalCoveragePercentage || data.coverage || '0') + '%';
+      document.getElementById('totalCoveredLines').textContent = data.totalCoveredLines || data.coveredLines || 0;
+      document.getElementById('totalNotCoveredLines').textContent = data.totalNotCoveredLines || data.notCoveredLines || 0;
+
+      // --- Render policy cards ---
+      var ul = document.getElementById('coverage-details');
+      var templateLi = ul.querySelector('li');
+      if (!templateLi) return;
+      var template = templateLi.cloneNode(true);
+      ul.innerHTML = '';
+
+      Object.entries(data.files || {}).forEach(function([path, policy]) {
+        var li = template.cloneNode(true);
+        // Set file name and path
+        var h2 = li.querySelector('h2');
+        if (h2) {
+          h2.innerHTML =
+            (policy.name || 'Policy') +
+            ' <span style="font-weight:400;font-size:13px;color:var(--sq-muted);">(' + (policy.path || '') + ')</span>';
+        }
+        // Set coverage stats
+        var coveredPerc = li.querySelector('#covered-percentage');
+        if (coveredPerc) coveredPerc.textContent = (policy.coverage || 0) + '%';
+        var uncoveredLines = li.querySelector('#uncovered-lines');
+        if (uncoveredLines) uncoveredLines.innerHTML = '<strong>Uncovered lines:</strong> ' + (policy.notCoveredLines || 0);
+        var coveredLines = li.querySelector('#covered-lines');
+        if (coveredLines) coveredLines.innerHTML = '<strong>Covered lines:</strong> ' + (policy.coveredLines || 0);
+        var totalLines = li.querySelector('#total-lines');
+        if (totalLines) totalLines.innerHTML = '<strong>Total lines:</strong> ' + (policy.totalLines || 0);
+        // Set code lines and highlight classes
+        var codeTable = li.querySelector('.code-table tbody');
+        if (codeTable && Array.isArray(policy.lines)) {
+          codeTable.innerHTML = '';
+          policy.lines.forEach(function(line, idx) {
+            var tr = document.createElement('tr');
+            tr.className = line.status || '';
+            var tdLn = document.createElement('td');
+            tdLn.className = 'ln';
+            tdLn.innerHTML = '<a id="L' + (idx+1) + '" href="#L' + (idx+1) + '" style="color:inherit;text-decoration:none;">' + (idx+1) + '</a>';
+            var tdCode = document.createElement('td');
+            tdCode.className = 'code';
+            tdCode.textContent = line.text || '';
+            tr.appendChild(tdLn);
+            tr.appendChild(tdCode);
+            codeTable.appendChild(tr);
+          });
+        }
+        ul.appendChild(li);
+      });
+    })
+    .catch(function(err) {
+      // Optionally show an error message
+      console.error('Failed to load coverage.json', err);
+    });
+});
+  </script>
+  
+  <script id="main-js">
+
+
+    // --- Highlight toggle and copy-to-clipboard logic for policy cards ---
+    document.addEventListener('DOMContentLoaded', function () {
+      // Eye button for highlight toggle
+      document.querySelectorAll('.policy-card-template').forEach(function(card) {
+        var eyeBtn = card.querySelector('.eye-btn');
+        var codeWrap = card.querySelector('.code-wrap');
+        if (eyeBtn && codeWrap) {
+          eyeBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            codeWrap.classList.toggle('highlight-off');
+            // Animate the eye icon (swap SVG for open/closed)
+            var svg = eyeBtn.querySelector('svg');
+            if (codeWrap.classList.contains('highlight-off')) {
+              svg.innerHTML = '<title>Show highlights</title><path d="M2 2L18 18" stroke="#888" stroke-width="1.5"/><path d="M10 4C5.45455 4 2.27273 8.18182 2.27273 10C2.27273 11.8182 5.45455 16 10 16C14.5455 16 17.7273 11.8182 17.7273 10C17.7273 8.18182 14.5455 4 10 4Z" stroke="#888" stroke-width="1.5"/><circle cx="10" cy="10" r="3" stroke="#888" stroke-width="1.5"/>';
+              eyeBtn.classList.add('eye-closed');
+            } else {
+              svg.innerHTML = '<title>Toggle coverage highlight on and off</title><path d="M10 4C5.45455 4 2.27273 8.18182 2.27273 10C2.27273 11.8182 5.45455 16 10 16C14.5455 16 17.7273 11.8182 17.7273 10C17.7273 8.18182 14.5455 4 10 4Z" stroke="#888" stroke-width="1.5"/><circle cx="10" cy="10" r="3" stroke="#888" stroke-width="1.5"/>';
+              eyeBtn.classList.remove('eye-closed');
+            }
+            eyeBtn.classList.add('eye-animate');
+            setTimeout(function(){ eyeBtn.classList.remove('eye-animate'); }, 250);
+          });
+        }
+        // Copy button for code
+        var copyBtn = card.querySelector('.copy-btn');
+        var codeTable = card.querySelector('.code-table');
+        if (copyBtn && codeTable) {
+          copyBtn.addEventListener('click', function() {
+            var lines = Array.from(codeTable.querySelectorAll('td.code')).map(function(td) {
+              return td.innerText || td.textContent;
+            });
+            var text = lines.join('\n');
+            navigator.clipboard.writeText(text);
+            copyBtn.classList.add('copy-animate');
+            copyBtn.title = 'Copied!';
+            setTimeout(function(){ copyBtn.title = 'Copy code'; copyBtn.classList.remove('copy-animate'); }, 1200);
+          });
+        }
+        // Policy card expand/collapse icon
+        var summary = card.querySelector('summary');
+        var icon = summary && summary.querySelector('.policy-toggle-icon');
+        if (icon) {
+          function updateIcon() {
+            if (card.open) {
+              icon.style.transform = 'rotate(0deg)';
+            } else {
+              icon.style.transform = 'rotate(-90deg)';
+            }
+          }
+          card.addEventListener('toggle', updateIcon);
+          updateIcon();
+        }
+      });
+
+      // --- Copy button for coverage raw ---
+      var covRaw = document.querySelector('#coverage-raw details.expandable');
+      if (covRaw) {
+        var covCopyBtn = covRaw.querySelector('.copy-btn');
+        var covPre = covRaw.querySelector('pre');
+        if (covCopyBtn && covPre) {
+          covCopyBtn.addEventListener('click', function() {
+            navigator.clipboard.writeText(covPre.innerText || covPre.textContent);
+            covCopyBtn.classList.add('copy-animate');
+            covCopyBtn.title = 'Copied!';
+            setTimeout(function(){ covCopyBtn.title = 'Copy content'; covCopyBtn.classList.remove('copy-animate'); }, 1200);
+          });
+        }
+      }
+
+      // --- Copy button for verbose raw ---
+      var verboseRaw = document.querySelector('#verbose-raw details.expandable');
+      if (verboseRaw) {
+        var verboseCopyBtn = verboseRaw.querySelector('.copy-btn');
+        var verbosePre = verboseRaw.querySelector('pre');
+        if (verboseCopyBtn && verbosePre) {
+          verboseCopyBtn.addEventListener('click', function() {
+            navigator.clipboard.writeText(verbosePre.innerText || verbosePre.textContent);
+            verboseCopyBtn.classList.add('copy-animate');
+            verboseCopyBtn.title = 'Copied!';
+            setTimeout(function(){ verboseCopyBtn.title = 'Copy content'; verboseCopyBtn.classList.remove('copy-animate'); }, 1200);
+          });
+        }
+      }
+
+      // Expand/collapse icons for expandable details
+      document.querySelectorAll('details.expandable').forEach(function(details) {
+        var summary = details.querySelector('summary.expandable-header');
+        var icon = summary && summary.querySelector('.expandable-toggle-icon');
+        if (icon) {
+          function updateIcon() {
+            if (details.open) {
+              icon.style.transform = 'rotate(0deg)';
+            } else {
+              icon.style.transform = 'rotate(-90deg)';
+            }
+          }
+          details.addEventListener('toggle', updateIcon);
+          updateIcon();
+        }
+      });
+    });
+
+    // --- Eye and copy button animation styles ---
+    var style = document.createElement('style');
+    style.innerHTML = `
+      .eye-animate svg { transition: filter 0.2s, transform 0.2s; filter: drop-shadow(0 0 2px #4e91f9); transform: scale(1.15); }
+      .eye-closed svg { opacity: 0.7; }
+      .copy-animate svg { transition: filter 0.2s, transform 0.2s; filter: drop-shadow(0 0 2px #4caf50); transform: scale(1.15); }
+    `;
+    document.head.appendChild(style);
+
+</script>
+  
   <style>
-    :root {
-      --bg: #f7f7f7;
-      --card: #ffffff;
-      --muted: #888;
-      --ln-bg: #f0f0f0;
-      --covered: #d8f6d8;
-      --missed: #f7d8d8;
-      --code-font: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Courier New", monospace;
-    }
-
-    body {
-      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-      margin: 20px;
-      background: var(--bg);
-      color: #222;
-    }
-
-    h1 {
-      margin: 0 0 8px 0;
-      font-size: 18px;
-    }
-
-    p.help {
-      margin: 6px 0 0 0;
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    .controls {
-      margin-top: 12px;
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .viewer {
-      margin-top: 18px;
-      background: var(--card);
+    .policy-card-template {
+      border: 1.5px solid #bbb;
       border-radius: 8px;
-      box-shadow: 0 4px 14px rgba(12, 20, 30, 0.06);
-      padding: 14px;
-    }
-
-    .toolbar {
-      display: flex;
-      gap: 8px;
-      justify-content: flex-end;
-      margin-bottom: 8px;
-    }
-
-    button {
-      border: 1px solid #ddd;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.03);
       background: #fff;
-      padding: 6px 10px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 13px;
     }
-
-    button:active {
-      transform: translateY(1px);
+    /* SonarQube-like theme */
+    :root {
+      --sq-bg: #f5f5f5;
+      --sq-card: #fff;
+      --sq-border: #e5e5e5;
+      --sq-primary: #4e91f9;
+      --sq-muted: #888;
+      --sq-header: #232c3b;
+      --sq-table-header: #f0f4f8;
+      --sq-success: #4caf50;
+      --sq-fail: #e53935;
+      --sq-font: 'Segoe UI', 'Arial', sans-serif;
     }
-
-    .fileinfo {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-    }
-
-    /* code table */
-    .code-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-family: var(--code-font);
-      font-size: 13px;
-      line-height: 1.45;
-      overflow: auto;
-    }
-
-    .code-wrap {
-      display: block;
-      width: 100%;
-      overflow: auto;
-    }
-
-    .code-table td {
-      vertical-align: top;
+    body {
+      background: var(--sq-bg);
+      color: #222;
+      font-family: var(--sq-font);
+      margin: 0;
       padding: 0;
     }
-
-    .ln {
-      width: 60px;
-      text-align: right;
-      padding: 8px 12px;
-      background: var(--ln-bg);
-      color: var(--muted);
-      border-right: 1px solid #e6e6e6;
-      user-select: none;
-      font-size: 12px;
+    header {
+      background: var(--sq-header);
+      color: #fff;
+      padding: 18px 32px;
+      font-size: 1.5rem;
+      font-weight: 600;
+      letter-spacing: 1px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    main {
+      max-width: 900px;
+      margin: 32px auto;
+      background: var(--sq-card);
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+      padding: 32px 28px 40px 28px;
+      border: 1px solid var(--sq-border);
+    }
+    h1, h2, h3 {
+      color: var(--sq-header);
+      margin-top: 0;
     }
 
-    .code {
-      padding: 8px 12px;
-      white-space: pre;
-      word-break: normal;
+    ul, li {
+    all: unset;
+    display: block; /* Optional: ensures li behaves like a block element */
     }
 
-    /* token colors (simple) */
-    .tok-comment {
-      color: #6a737d;
-      font-style: italic;
+    .summary-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 32px;
+      background: var(--sq-table-header);
+      border-radius: 6px 6px 0 0;
+      overflow: hidden;
     }
-
-    .tok-keyword {
-      color: #000080;
+    .summary-table th, .summary-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--sq-border);
+      text-align: left;
+      font-size: 1rem;
+    }
+    .summary-table th {
+      background: var(--sq-table-header);
+      color: var(--sq-header);
       font-weight: 600;
     }
-
-    .tok-string {
-      color: #008000;
+    .summary-table tr:last-child td {
+      border-bottom: none;
+    }
+    .coverage-pass {
+      color: var(--sq-success);
+      font-weight: 600;
+    }
+    .coverage-fail {
+      color: var(--sq-fail);
+      font-weight: 600;
+    }
+    .muted {
+      color: var(--sq-muted);
+      font-size: 0.95em;
+    }
+    .expandable-content pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #bbb;
+      border-radius: 4px;
+      background: #fafbfc;
+      padding: 10px 12px;
+      margin-top: 10px;
+    }
+    .expandable {
+      box-sizing: border-box;
+      border: 1px solid #bbb;
+      border-radius: 4px;
+      background: #fafbfc;
+      padding: 10px;
+    }
+    #coverage-main, #verbose-main {
+      border: 2px solid #bbb;
+      border-radius: 8px;
+      margin-bottom: 32px;
+      background: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+      padding: 18px 20px 24px 20px;
     }
 
-    .tok-number {
-      color: #0b7fbf;
-    }
 
-    .tok-operator {
-      color: #aa22ff;
-    }
-
-    .tok-builtin {
-      color: #2b91af;
-    }
-
-    .tok-variable {
-      color: #333;
-    }
-
-    .tok-punct {
-      color: #444;
-    }
-
-    /* coverage highlights (applies to code cell td) */
+    /* Coverage highlights for code-table rows */
     tr.covered td.code {
-      background: var(--covered) !important;
+      background: #e6ffe6 !important;
     }
-
     tr.missed td.code {
-      background: var(--missed) !important;
+      background: #ffe6e6 !important;
     }
-
     tr.ignored td.code {
       background: #e6f0ff !important;
     }
 
-    /* summary table */
-    .summary-table {
-      border-collapse: collapse;
-      margin-bottom: 12px;
-      background: #fff;
-    }
-
-    .summary-table td {
-      border: 1px solid #e0e0e0;
-      padding: 6px 12px;
-      font-size: 15px;
-    }
-
-    .summary-table tr {
-      border-bottom: 1px solid #e0e0e0;
+    /* Hide highlights when highlight-off is set on code-wrap */
+    .highlight-off tr.covered td.code,
+    .highlight-off tr.missed td.code,
+    .highlight-off tr.ignored td.code {
+      background: none !important;
     }
 
     .legend {
@@ -197,64 +342,28 @@
     }
 
     .covered-swatch {
-      background: #e6ffe6;
+      background: #e6ffe6 !important;
       border-color: #b2e6b2;
     }
 
     .uncovered-swatch {
-      background: #ffe6e6;
+      background: #ffe6e6 !important;
       border-color: #e6b2b2;
     }
 
     .ignored-swatch {
-      background: #e6f0ff;
+      background: #e6f0ff !important;
       border-color: #b2cbe6;
-    }
-
-    /* shimmer effect for scroll-to anchors */
-    @keyframes shimmer {
-      0% {
-        background-position: -1000px 0;
-      }
-
-      100% {
-        background-position: 1000px 0;
-      }
-    }
-
-    .shimmer {
-      animation: shimmer-flash 3s 1;
-      background: #ffb347 !important;
-      /* bright orange */
-      box-shadow: none !important;
-    }
-
-    @keyframes shimmer-flash {
-      0% {
-        background: #ffb347;
-      }
-
-      90% {
-        background: #ffb347;
-      }
-
-      100% {
-        background: none;
-      }
     }
 
     /* Policy renderer colors for verbose table */
     .status-pass {
-      background-color: var(--covered) !important;
+      background: #e6ffe6 !important;
       color: #222 !important;
     }
     .status-fail {
-      background-color: var(--missed) !important;
+      background: #ffe6e6 !important;
       color: #222 !important;
-    }
-    .status-other {
-      background-color: #e6f0ff !important; /* Blue */
-      color: white !important;
     }
     .time-slow {
       background: #ffeacc !important; /* soft orange, fits coverage scheme */
@@ -262,1253 +371,232 @@
       font-weight: bold;
     }
 
-    
-  </style>
+
+</style>
 </head>
-
 <body>
-
-  <h1>Welcome to Polly Rego Policy Coverage Report viewer.</h1>
-
-  <div class="controls">
-    <table class="summary-table" style="margin-bottom: 12px;">
-      <tr>
-        <td style="padding-right: 24px;"><strong>Loaded file:</strong></td>
-        <td id="fileName">—</td>
-        <td style="padding-right: 24px;"><strong>Total Policies:</strong></td>
-        <td id="totalPolicies">—</td>
-        <td style="padding-right: 24px;"><strong>Total coverage:</strong></td>
-        <td id="covName">—</td>
-        <td style="padding-right: 24px;"><strong>Covered lines:</strong></td>
-        <td id="mainCoveredLines">—</td>
-        <td style="padding-right: 24px;"><strong>Not covered lines:</strong></td>
-        <td id="mainNotCoveredLines">—</td>
-      </tr>
-    </table>
-  </div>
-  <div class="legend">
-    <span><span class="legend-swatch covered-swatch"></span>Covered line</span>
-    <span><span class="legend-swatch uncovered-swatch"></span>Not covered line</span>
-    <span><span class="legend-swatch ignored-swatch"></span>Non-executable/ignored line</span>
-  </div>
-  <div class="viewer" id="viewer" style="display:none;">
-
-    <div id="coverage-main" style="margin: 16px 0; border: 2px solid #bbb; border-radius: 10px; padding: 18px 10px 10px 10px; background: #f8f8f8;">
-
-          <div class="code-wrap" id="codeWrap">
-      <table class="code-table" id="codeTable">
-        <tbody></tbody>
-      </table>
-
-    <div id="coverage-pre-container" style="margin: 0 0 24px 0; border: 1px solid #eee; border-radius: 6px; background: #fafbfc;">
-    <div id="coverage-pre-header"
-      style="display: flex; align-items: center; padding: 10px 12px; cursor: pointer; user-select: none;">
-      <span id="coverage-pre-collapse" style="margin-right: 10px;">
-        <svg width="16" height="16" viewBox="0 0 16 16">
-          <polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2" />
-        </svg>
-      </span>
-      <h2 style="margin: 0; flex: 1; font-size: 16px;">Raw coverage.json output</h2>
-      <button id="coverage-pre-copy" title="Copy coverage.json" aria-label="Copy coverage.json"
-        style="background: none; border: none; cursor: pointer; padding: 0 0 0 8px; display: flex; align-items: center; height: 28px; margin-left: 8px;">
-        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <title>Copy coverage.json to clipboard</title>
-          <rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff" />
-          <rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7" />
-        </svg>
-      </button>
+  <header>Polly Rego Testing & Coverage Report</header>
+  <main>
+    <div id="coverage-main" class="card">
+        <h1>Project Coverage Summary</h1>
+        <table id="coverage-summary" class="summary-table" style="margin-bottom: 12px;">
+            <tbody>
+                <tr>
+                    <td style="padding-right: 24px;"><strong>Total Policies:</strong></td>
+                    <td id="totalPolicies">8</td>
+                    <td style="padding-right: 24px;"><strong>Total coverage:</strong></td>
+                    <td id="totalCoveragePercentage">96%</td>
+                </tr>
+                <tr>
+                    <td style="padding-right: 24px;"><strong>Covered lines:</strong></td>
+                    <td id="totalCoveredLines">30</td>
+                    <td style="padding-right: 24px;"><strong>Not covered lines:</strong></td>
+                    <td id="totalNotCoveredLines">1</td>
+                </tr>
+            </tbody>
+        </table>
+        <h2>Coverage Details</h2>
+        <!-- Legend for code highlights -->
+        <div class="legend" style="margin-bottom:18px; font-size:14px; display:flex; gap:24px; align-items:center;">
+          <span><span class="legend-swatch covered-swatch"></span>Covered line</span>
+          <span><span class="legend-swatch uncovered-swatch"></span>Not covered line</span>
+          <span><span class="legend-swatch ignored-swatch"></span>Ignored line</span>
+        </div>
+        <ul id="coverage-details">
+            <li>
+                <!-- Expandable/collapsible policy card -->
+                <details class="policy-card-template card" style="margin-top:16px;" open>
+                    <summary style="list-style:none;outline:none;cursor:pointer;display:flex;align-items:center;padding:10px 12px;">
+                        <span class="policy-toggle-icon" style="display:inline-block;width:18px;height:18px;margin-right:6px;transition:transform 0.2s;">
+                            <svg viewBox="0 0 16 16" width="16" height="16" style="display:block;"><polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2"/></svg>
+                        </span>
+                        <span style="margin-right:10px;">&#128196;</span>
+                        <h2 style="margin:0;flex:1;font-size:16px;">payment.rego <span style="font-weight:400;font-size:13px;color:var(--sq-muted);">(policies/payment.rego)</span></h2>
+                        <button class="eye-btn" title="Toggle highlight" aria-label="Toggle highlight" style="background:none;border:none;cursor:pointer;padding:0 8px 0 8px;display:flex;align-items:center;">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Toggle coverage highlight on and off</title><path d="M10 4C5.45455 4 2.27273 8.18182 2.27273 10C2.27273 11.8182 5.45455 16 10 16C14.5455 16 17.7273 11.8182 17.7273 10C17.7273 8.18182 14.5455 4 10 4Z" stroke="#888" stroke-width="1.5"/><circle cx="10" cy="10" r="3" stroke="#888" stroke-width="1.5"/></svg>
+                        </button>
+                        <button class="copy-btn" title="Copy code" aria-label="Copy code" style="background:none;border:none;cursor:pointer;padding:0 8px 0 0;display:flex;align-items:center;">
+                            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy policy to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>
+                        </button>
+                        <span id="covered-percentage" style="margin-left:8px;color:var(--sq-muted);font-size:14px;">75%</span>
+                        <span id="uncovered-lines" style="margin-left:12px;color:var(--sq-muted);font-size:13px;"><strong>Uncovered lines:</strong> 25</span>
+                        <span id="covered-lines" style="margin-left:12px;color:var(--sq-muted);font-size:13px;"><strong>Covered lines:</strong> 75</span>
+                        <span id="total-lines" style="margin-left:12px;color:var(--sq-muted);font-size:13px;"><strong>Total lines:</strong> 100</span>
+                    </summary>
+                    <div class="code-wrap" style="background:#fafbfc;border-radius:6px;padding:10px 12px;margin-top:8px;">
+                        <table class="code-table" style="width:100%;border-collapse:collapse;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Courier New', monospace;font-size:13px;line-height:1.45;">
+                            <tbody>
+                                <tr class="covered">
+                                <td class="ln"><a id="L1" href="#L1" style="color:inherit;text-decoration:none;">1</a></td>
+                                <td class="code">package payment</td>
+                                </tr>
+                                <tr class="ignored">
+                                <td class="ln"><a id="L2" href="#L2" style="color:inherit;text-decoration:none;">2</a></td>
+                                <td class="code">default allow = false</td>
+                                </tr>
+                                <tr class="covered">
+                                <td class="ln"><a id="L3" href="#L3" style="color:inherit;text-decoration:none;">3</a></td>
+                                <td class="code">allow &#123;</td>
+                                </tr>
+                                <tr class="covered">
+                                <td class="ln"><a id="L4" href="#L4" style="color:inherit;text-decoration:none;">4</a></td>
+                                <td class="code">    input.amount &lt; 1000</td>
+                                </tr>
+                                <tr class="missed">
+                                <td class="ln"><a id="L5" href="#L5" style="color:inherit;text-decoration:none;">5</a></td>
+                                <td class="code">    input.user == "manager"</td>
+                                </tr>
+                                <tr class="covered">
+                                <td class="ln"><a id="L6" href="#L6" style="color:inherit;text-decoration:none;">6</a></td>
+                                <td class="code">&#125;</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </details>
+                <div>
+                    <div id="coverage-raw" style="padding-top: 15px;">
+                        <details class="expandable">
+                            <summary class="expandable-header" style="display:flex;align-items:center;cursor:pointer;">
+                                <span class="expandable-toggle-icon" style="display:inline-block;width:18px;height:18px;margin-right:6px;transition:transform 0.2s;">
+                                    <svg viewBox="0 0 16 16" width="16" height="16" style="display:block;"><polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2"/></svg>
+                                </span>
+                                <span style="flex:1;">Expand for raw coverage report.</span>
+                                <button class="copy-btn" title="Copy content" aria-label="Copy content" style="background:none;border:none;cursor:pointer;padding:0 0 0 8px;display:flex;align-items:center;">
+                                  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>
+                                </button>
+                                <button class="eye-btn" title="Toggle highlight" aria-label="Toggle highlight" style="background:none;border:none;cursor:pointer;padding:0 8px 0 8px;display:flex;align-items:center;">
+                                </button>
+                            </summary>
+                            <div class="expandable-content">
+                                <pre>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque euismod, urna eu tincidunt consectetur, nisi nisl aliquam nunc, eget aliquam massa nisl quis neque. Suspendisse potenti. Etiam euismod, urna eu tincidunt consectetur, nisi nisl aliquam nunc, eget aliquam massa nisl quis neque.</pre>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </li>
+        </ul>
     </div>
-    <pre id="coverage-pre"
-      style="margin: 0; padding: 16px; font-size: 14px; overflow-x: auto; border-radius: 0 0 6px 6px; background: #fff; border-top: 1px solid #eee;">
-    </pre>
-  </div>
+    <div id="verbose-main" class="card">
+        <div>
+            <h2>Verbose Details</h2>
+            <div id="verbose-details">
+
+                <div class="legend" id="verbose-legend" style="margin: 10px 0 24px 0;">
+                    <span><span class="legend-swatch covered-swatch"></span>PASS</span>
+                    <span><span class="legend-swatch uncovered-swatch"></span>FAIL</span>
+                    <span><span class="legend-swatch time-slow"></span>Time &gt; 100ms</span>
+                </div>
+
+                <table id="table-verbose" class="summary-table">
+                    <thead>
+                        <tr>
+                            <th>Test</th>
+                            <th>Status</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Rows will be dynamically inserted here -->
+                        <!-- Example static row for illustration: -->
+                        <tr>
+                            <td>order_service/invoice/allow</td>
+                            <td class="status-pass">PASS</td>
+                            <td>12</td>
+                        </tr>
+                        <tr>
+                            <td>order_service/invoice/deny</td>
+                            <td class="status-fail">FAIL</td>
+                            <td>8</td>
+                        </tr>
+                        <tr>
+                            <td>order_service/invoice/slow</td>
+                            <td class="status-pass">PASS</td>
+                            <td class="time-slow">120</td>
+                        </tr>
+                    </tbody>
+                </table>            
+            </div>
+            <div id="verbose-raw">
+                <details class="expandable">
+                    <summary class="expandable-header" style="display:flex;align-items:center;cursor:pointer;">
+                      <span class="expandable-toggle-icon" style="display:inline-block;width:18px;height:18px;margin-right:6px;transition:transform 0.2s;">
+                        <svg viewBox="0 0 16 16" width="16" height="16" style="display:block;"><polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2"/></svg>
+                      </span>
+                      <span style="flex:1;">Expand for more verbose info</span>
+                      <button class="copy-btn" title="Copy content" aria-label="Copy content" style="background:none;border:none;cursor:pointer;padding:0 0 0 8px;display:flex;align-items:center;">
+                        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>
+                      </button>
+                    <button class="eye-btn" title="Toggle highlight" aria-label="Toggle highlight" style="background:none;border:none;cursor:pointer;padding:0 8px 0 8px;display:flex;align-items:center;">
+                    </button>
+                    </summary>
+                    <div class="expandable-content">
+                        <pre>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque euismod, urna eu tincidunt consectetur, nisi nisl aliquam nunc, eget aliquam massa nisl quis neque. Suspendisse potenti. Etiam euismod, urna eu tincidunt consectetur, nisi nisl aliquam nunc, eget aliquam massa nisl quis neque.</pre>
+                    </div>
+                </details>
+            </div>
+        </div>
     </div>
 
+    <div id="footer" style="text-align: center;">
+        <pre>    Welcome to Polly Rego Policy Coverage Report utility!
+
+            :::::::::::::::::::::::::::------::.+#+=::::::::::::::::::::::::::::::
+            ::::::::::::::::::::::::-+*********+=:*##*::::::::::::::::::::::::::::
+            ::::------------------=*#**************#*#=:-====-::::::::::::::::::::
+            :::++++++++++++++++++*#***************##*##*********=:::::::::::::::::
+            ::-*+++++++++==++++=*#*##***************************#*-.::::::::::::::
+            ::-*+++++++=--=+++++####***************#**************#-::::::::::::::
+            ::-*++=-++=:-=++++++*+#****************#***************#+-::::=+::::::
+            ::-*++=:---=++++++++++#**********#*====#*******************++**#=:::::
+            ::-*++++--++++++++++++##**********-=====*******##**************#+:::::
+            ::-*++++++++=-=+++++*#**#*******##====+++**+++=*#*************#+::::::
+            ::-*++==++=--=++++++#*#*+++++++++===========---+#*************#+::::::
+            ::-*++=:--:=+++++++*#*#***+=-===-====*******+===****************#-::::
+            ::-*+++=--=+++++++++%#+==+*#+======**+++++=+**=-=*#***************::::
+            ::-*++++++++=-=++++#**=+=-=*#*====#*++=---++=*#==-=*##***********#-:::
+            ::-*++==+++-:-++++*#*#+-...-*#==-**++:.::::=*=#+===+#************#::::
+            ::-*++=:==:-=+++++##*#*:-++-+#*++#+*::+*+-::*=*#***##***********#+::::
+            ::-*+++=::=+++++++#*=#*:*%%*+%***#*+:+%%%*::*=#*===#**********##=:::::
+            ::-*++++=++++==++++#**+=*%#*+++++##*:*%#%*:+++#==+##*********#=:::::::
+            ::-*+++++++=--=+++=*#+=+**==---===*#+=*#*==++#+===++##******#=..::::::
+            ::-*++=-==--=++++++*=+***======+=-=+#**++****======-*#*****#-.:-::::::
+            ::-*+++-::-++++++++*-==#=-=========-+#***++=========#******#==*#::::::
+            ::-*++++==+++++++++#+-=#=-==========#*=++-=========+#*********#+::::::
+            :::+++++++++++++++++#+=+*=-+***#####%+-*+-======-=*#****##****+:::::::
+            ::::--------====-----=+++*+*=*+%#**#*-=*========*##**##*##+--:::::::::
+            ::::::::::-*****+-:::::-=+*+=+*+***+=+*=====++*##*%#*##+==::::::::::::
+            :::::::::-#*******:::::::::-==+*++++*+===++#+:-=+++---::::::::::::::::
+            ::::::::.-#*****##+=::::::::..-#===========**-:..:::::::::::::=+**-:::
+            ::::::::=*****#*+++**:::::::-+#+-========++****+=:::::::::::=**++*+:::
+            :::::::=#+++++#+++*+#-.:::-+*#*+======++++**++++**=:::::::-**++++#-:::
+            :::::::-#*****#****+#+==+**+#*++++++++++++#+++++++*+:::::=*+++++#=::::
+            :::::::=#+++++*#*#+++++*+++**+++++++++++++#++++++++**-::=#+++++#++++::
+            :::::::=#++***#**##**++++++#++++++++++++++#++++++++++*--#+++++##*++#::
+            ::::::::-**+*##******#*+++**++++++++++++++*#*****+++++*#++++*#*+++#=::
+            ::::::::::-*#*********#++*#*++++++++++*****+++++++++++*#+++**++++*=:::
+            :::::::::::+**********#*+==#++++++++***++++++++++++++++#*+**+++**-::::
+            :::::::::::=#***#####**=---**+++++***+***++++++++++++++**++++**=::::::
+            :::::::::::-+*#*+++==------=***++**+**++***++++++++++***+++**+-::--:::
+            ===========+++============-:::-+*#+#*+*#*+++***++++*##*++**+==========
+            =========++=-==++=-----:--=+-::.=#**+*#+++*#*****+++++**+=============
+            ======+++-::=+-+++=++++=====+:-==-=**#****++==---::::-+#+++++++++=====
+            ====+*+-:::::+=:::------==+=+==-::::--==-::::::::::-==-+*+============
+            ====#========-====-------=+*=-:::::::::::::::::::-==-=-=#**+==========
+            ===*#===----======-------==-:::::::::::::::::::-==--=-=+*#*+==========
+            ==+###****++==---==-:.:==-:::::::::::::::::::-==-=--=**#*+============
+            ====++****###**++==++=*+=======---:::::::::-==-==-=**#*+==============
+            ==========+++**#####%%*+===---=======-:::-==-=--=**#*+================
+            ================+**######***++==----====+=-==-=*##*+==================
+            ==================+++++++***###**++==--=+--==*##*+====================
+            ===========================+++***###**+=+==*##*+======================
+            =================================++***###*##*+========================
+            ======================================++***+==========================
+            Created by @willemevenwel on GitHub
+        </pre>
     </div>
 
-  </div>
-
-  <script>
-    /* ---------- Helpers ---------- */
-
-    function basename(path) {
-      if (!path) return path;
-      const parts = path.split('/');
-      return parts[parts.length - 1];
-    }
-    function escapeHtml(s) {
-      return s.replace(/[&<>"']/g, function (c) {
-        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', '\'': '&#39;' }[c]);
-      });
-    }
-
-    // New: List all policy files (not _test.rego) from coverage.json
-    async function listPolicyFiles(coveragePath) {
-      console.log("[Info] - reading all policies at " + coveragePath);
-      try {
-        const covText = await fetchTextOrThrow(coveragePath);
-        const pre = document.getElementById('coverage-pre');
-        if (pre) {
-          pre.textContent = covText;
-          setupCoveragePreControls();
-        }
-        const data = JSON.parse(covText);
-        const files = data.files || {};
-        // Only include .rego files that do NOT have 'test' in their name or full path
-        return Object.keys(files).filter(f => f.endsWith('.rego') && !/test/i.test(f));
-      } catch (e) {
-        alert('Could not load coverage.json: ' + e.message);
-        return [];
-      }
-    }
-
-    // New: UI for selecting and displaying all policy files
-    async function showPolicyFileSelector(coveragePath) {
-      console.log("[Info] - loading " + coveragePath);
-  const files = await listPolicyFiles(coveragePath);
-  // Make the viewer section visible after loading coverage
-  const viewerElem = document.getElementById('viewer');
-  if (viewerElem) viewerElem.style.display = '';
-      // Main container for all rendered policies, with grey border and legend
-      const container = document.getElementById('coverage-main');
-
-      // Move the legend into this container, and add 'Policy file coverage' above it
-      const legend = document.querySelector('.legend');
-      if (legend) {
-        legend.parentNode.removeChild(legend);
-        // Add title above legend
-        const legendTitle = document.createElement('div');
-        legendTitle.textContent = 'Policy file coverage';
-        legendTitle.style.fontWeight = 'bold';
-        legendTitle.style.fontSize = '16px';
-        legendTitle.style.marginBottom = '20px';
-        container.appendChild(legendTitle);
-        container.appendChild(legend);
-      }
-      // Add buttons row (no label, just buttons, nicely aligned)
-      const buttonRow = document.createElement('div');
-      buttonRow.style.display = 'flex';
-      buttonRow.style.gap = '12px';
-      buttonRow.style.margin = '8px 0 16px 0';
-      // Buttons with IDs
-      const btnAuto = document.createElement('button');
-      btnAuto.textContent = 'Expand Automatic';
-      btnAuto.type = 'button';
-      btnAuto.id = 'coverage-btn-auto';
-      buttonRow.appendChild(btnAuto);
-      const btnExpand = document.createElement('button');
-      btnExpand.textContent = 'Expand All';
-      btnExpand.type = 'button';
-      btnExpand.id = 'coverage-btn-expand';
-      buttonRow.appendChild(btnExpand);
-      const btnCollapse = document.createElement('button');
-      btnCollapse.textContent = 'Collapse All';
-      btnCollapse.type = 'button';
-      btnCollapse.id = 'coverage-btn-collapse';
-      buttonRow.appendChild(btnCollapse);
-      container.appendChild(buttonRow);
-      // Insert before .viewer
-      const viewer = document.getElementById('viewer');
-      viewer.parentNode.insertBefore(container, viewer);
-
-      // Load coverage.json once
-      let covText = '';
-      let covData = {};
-      try {
-        covText = await fetchTextOrThrow(coveragePath);
-        covData = JSON.parse(covText);
-      } catch (e) { }
-
-      // Use root 'coverage' field for combined coverage
-      // If the value is > 1, assume it's already a percentage
-      let avgCoveragePct = '—';
-      let coveredLines = 0;
-      let notCoveredLines = 0;
-      if (covData.coverage !== undefined) {
-        avgCoveragePct = covData.coverage > 1 ? covData.coverage.toFixed(0) + '%' : (covData.coverage * 100).toFixed(0) + '%';
-      }
-      if (covData.covered_lines !== undefined) coveredLines = covData.covered_lines;
-      if (covData.not_covered_lines !== undefined) notCoveredLines = covData.not_covered_lines;
-      document.getElementById('fileName').textContent = 'All';
-      let covNameElem = document.getElementById('covName');
-      covNameElem.innerHTML = avgCoveragePct +
-        (coveragePath ?
-          ' <span style="font-size:13px;color:var(--muted);">(<a href="' + encodeURI(coveragePath) + '" target="_blank" style="color:var(--muted);text-decoration:underline;">' + basename(coveragePath) + '</a>)</span>'
-          : '');
-      document.getElementById('mainCoveredLines').textContent = coveredLines;
-      document.getElementById('mainNotCoveredLines').textContent = notCoveredLines;
-
-      // For each file, render its code and coverage below the selector
-      // Store references to collapsible containers for expand/collapse all
-      const collapsibles = [];
-      let idx = 0;
-      for (const f of files) {
-        console.log("[Info] - rendering " + f);
-        idx++;
-        const policyPrefix = `policy${idx}`;
-        // Collapsible container for each policy
-        const collapsible = document.createElement('div');
-        collapsible.style.marginBottom = '24px';
-        collapsible.style.border = '1px solid #eee';
-        collapsible.style.borderRadius = '6px';
-        collapsible.style.background = '#fafbfc';
-
-        // Set total policies count in the summary table
-        const totalPoliciesElem = document.getElementById('totalPolicies');
-        if (totalPoliciesElem) {
-          totalPoliciesElem.textContent = files.length;
-        }
-        // Header row with collapse/expand button, file name, and toggle button
-        const headerRow = document.createElement('div');
-        headerRow.style.display = 'flex';
-        headerRow.style.alignItems = 'center';
-        headerRow.style.margin = '0';
-        headerRow.style.padding = '10px 12px';
-        headerRow.style.cursor = 'pointer';
-        headerRow.style.userSelect = 'none';
-
-        // Collapse/expand icon
-        const collapseIcon = document.createElement('span');
-        collapseIcon.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2"/></svg>';
-        collapseIcon.style.marginRight = '10px';
-        headerRow.appendChild(collapseIcon);
-
-        // File header: add numbering before basename, with full path in lighter font in brackets
-        const fileHeader = document.createElement('h2');
-        fileHeader.innerHTML = `${idx}. ${basename(f)} <span style="font-weight:400;font-size:13px;color:var(--muted);">(${escapeHtml(f)})</span>`;
-        fileHeader.style.margin = '0';
-        fileHeader.style.flex = '1';
-        fileHeader.style.fontSize = '16px';
-        headerRow.appendChild(fileHeader);
-
-        // Toggle button for coverage highlight (eye icon)
-        const toggleBtn = document.createElement('button');
-        toggleBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Toggle coverage highlight on and off</title><path d="M10 4C5.45455 4 2.27273 8.18182 2.27273 10C2.27273 11.8182 5.45455 16 10 16C14.5455 16 17.7273 11.8182 17.7273 10C17.7273 8.18182 14.5455 4 10 4Z" stroke="#888" stroke-width="1.5"/><circle cx="10" cy="10" r="3" stroke="#888" stroke-width="1.5"/></svg>';
-        toggleBtn.title = 'Toggle coverage highlight on and off';
-        toggleBtn.setAttribute('aria-label', 'Toggle coverage highlight on and off');
-        toggleBtn.style.background = 'none';
-        toggleBtn.style.border = 'none';
-        toggleBtn.style.cursor = 'pointer';
-        toggleBtn.style.padding = '0 0 0 8px';
-        toggleBtn.style.display = 'flex';
-        toggleBtn.style.alignItems = 'center';
-        toggleBtn.style.height = '28px';
-        toggleBtn.style.marginLeft = '8px';
-        headerRow.appendChild(toggleBtn);
-
-        // Copy-to-clipboard button
-        const copyBtn = document.createElement('button');
-        copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy policy to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>';
-        copyBtn.title = 'Copy policy to clipboard';
-        copyBtn.setAttribute('aria-label', 'Copy policy to clipboard');
-        copyBtn.style.background = 'none';
-        copyBtn.style.border = 'none';
-        copyBtn.style.cursor = 'pointer';
-        copyBtn.style.padding = '0 0 0 8px';
-        copyBtn.style.display = 'flex';
-        copyBtn.style.alignItems = 'center';
-        copyBtn.style.height = '28px';
-        copyBtn.style.marginLeft = '2px';
-        headerRow.appendChild(copyBtn);
-
-        // Copy logic: fetch and copy code for this policy
-        // Prevent header toggle on both click and mousedown
-        copyBtn.addEventListener('mousedown', function (e) {
-          e.stopPropagation();
-        });
-        copyBtn.addEventListener('click', async function (e) {
-          e.stopPropagation();
-          try {
-            const codeText = await fetchTextOrThrow(f);
-            await navigator.clipboard.writeText(codeText);
-            copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copied!</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/><polyline points="7,13 10,16 15,9" fill="none" stroke="#4caf50" stroke-width="2"/></svg>';
-            setTimeout(() => {
-              copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy policy to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>';
-            }, 1200);
-          } catch (err) {
-            copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy failed</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/><line x1="7" y1="7" x2="13" y2="13" stroke="#e53935" stroke-width="2"/><line x1="13" y1="7" x2="7" y2="13" stroke="#e53935" stroke-width="2"/></svg>';
-            setTimeout(() => {
-              copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy policy to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>';
-            }, 1200);
-          }
-        });
-
-        // Coverage percentage for this file from its 'coverage' field in coverage.json
-        let pct = '';
-        let fileCoveredLines = 0;
-        let fileNotCoveredLines = 0;
-        if (covData.files) {
-          // Try to match by exact key, or by basename
-          let fileEntry = covData.files[f];
-          if (!fileEntry) {
-            // Try to find by basename
-            const base = basename(f);
-            for (const key of Object.keys(covData.files)) {
-              if (basename(key) === base) {
-                fileEntry = covData.files[key];
-                break;
-              }
-            }
-          }
-          if (fileEntry && fileEntry.coverage !== undefined) {
-            pct = fileEntry.coverage > 1 ? fileEntry.coverage.toFixed(0) + '%' : (fileEntry.coverage * 100).toFixed(0) + '%';
-          }
-          fileCoveredLines = fileEntry && fileEntry.covered_lines !== undefined ? fileEntry.covered_lines : 0;
-          fileNotCoveredLines = fileEntry && fileEntry.not_covered_lines !== undefined ? fileEntry.not_covered_lines : 0;
-        }
-        const pctSpan = document.createElement('span');
-        pctSpan.textContent = pct;
-        pctSpan.title = basename(f) + "'s coverage";
-        pctSpan.style.marginLeft = '8px';
-        pctSpan.style.color = 'var(--muted)';
-        pctSpan.style.fontSize = '14px';
-        headerRow.appendChild(pctSpan);
-        // Add summary for this policy: Uncovered lines first, then Covered, then Total
-        const totalLines = fileCoveredLines + fileNotCoveredLines;
-        const fileSummary = document.createElement('span');
-        fileSummary.innerHTML = `<span style='margin-left:12px;'><strong>Uncovered lines:</strong> ${fileNotCoveredLines}</span> <span style='margin-left:12px;'><strong>Covered lines:</strong> ${fileCoveredLines}</span> <span style='margin-left:12px;'><strong>Total lines:</strong> ${totalLines}</span>`;
-        fileSummary.style.color = 'var(--muted)';
-        fileSummary.style.fontSize = '13px';
-        headerRow.appendChild(fileSummary);
-
-        collapsible.appendChild(headerRow);
-
-        // Code viewer
-        const codeWrap = document.createElement('div');
-        codeWrap.className = 'code-wrap';
-        codeWrap.style.margin = '0';
-        const codeTable = document.createElement('table');
-        codeTable.className = 'code-table';
-        codeTable.innerHTML = '<tbody></tbody>';
-        codeWrap.appendChild(codeTable);
-        collapsible.appendChild(codeWrap);
-
-        container.appendChild(collapsible);
-        collapsibles.push({ collapsible, codeWrap, toggleBtn, headerRow, collapseIcon });
-
-        // Fetch code and coverage, then render
-        try {
-          const codeText = await fetchTextOrThrow(f);
-          const totalLines = codeText.split(/\r?\n/).length;
-          const coverageData = parseCoverageJson(covText, f, totalLines);
-          // Render code table
-          const tbody = codeTable.querySelector('tbody');
-          tbody.innerHTML = '';
-          const lines = codeText.split(/\r?\n/);
-          for (let i = 0; i < lines.length; i++) {
-            const lineNumber = i + 1;
-            const tr = document.createElement('tr');
-            tr.id = `${policyPrefix}-L${lineNumber}-row`;
-            // Determine if this line should be ignored (non-executable)
-            const trimmed = lines[i].trim();
-            const isComment = trimmed.startsWith('#');
-            const isImport = trimmed.startsWith('import ');
-            const isIgnored =
-              trimmed === '' ||
-              trimmed === '}' ||
-              trimmed.startsWith('package ') ||
-              isImport ||
-              isComment;
-            if (isIgnored) {
-              tr.classList.add('ignored');
-            } else if (coverageData) {
-              if (coverageData.covered && coverageData.covered.has(lineNumber)) tr.classList.add('covered');
-              else if (coverageData.missed && coverageData.missed.has(lineNumber)) tr.classList.add('missed');
-            }
-            const tdLn = document.createElement('td');
-            tdLn.className = 'ln';
-            // The visible line number is a styled anchor for copy/share
-            const a = document.createElement('a');
-            a.href = `#${policyPrefix}-L${lineNumber}`;
-            a.id = `${policyPrefix}-L${lineNumber}`;
-            a.textContent = lineNumber;
-            a.style.textDecoration = 'none';
-            a.style.color = 'inherit';
-            a.style.cursor = 'default';
-            tdLn.appendChild(a);
-            const tdCode = document.createElement('td');
-            tdCode.className = 'code';
-            tdCode.innerHTML = tokenizeRego(lines[i] || '');
-            tr.appendChild(tdLn);
-            tr.appendChild(tdCode);
-            tbody.appendChild(tr);
-          }
-          // Toggle coverage highlight functionality
-          let highlightOn = true;
-          toggleBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            highlightOn = !highlightOn;
-            const rows = codeTable.querySelectorAll('tbody tr');
-            rows.forEach(r => {
-              if (highlightOn) {
-                // reapply classes from coverageData
-                const idx = Array.from(rows).indexOf(r) + 1;
-                r.classList.remove('covered', 'missed');
-                if (coverageData.covered && coverageData.covered.has(idx)) r.classList.add('covered');
-                else if (coverageData.missed && coverageData.missed.has(idx)) r.classList.add('missed');
-              } else {
-                r.classList.remove('covered', 'missed');
-              }
-            });
-          });
-          // Collapse/expand functionality
-          let collapsed = false;
-          headerRow.addEventListener('click', () => {
-            collapsed = !collapsed;
-            codeWrap.style.display = collapsed ? 'none' : '';
-            toggleBtn.style.display = collapsed ? 'none' : 'flex';
-            pctSpan.style.display = 'inline'; // Always show percentage
-            collapseIcon.innerHTML = collapsed
-              ? '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,10 8,6 12,10" fill="none" stroke="#888" stroke-width="2"/></svg>'
-              : '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2"/></svg>';
-          });
-        } catch (e) {
-          const errMsg = document.createElement('div');
-          errMsg.style.color = 'red';
-          errMsg.textContent = 'Error loading file: ' + f + ' — ' + e.message;
-          collapsible.appendChild(errMsg);
-        }
-      }
-
-      // Add expand/collapse all/auto logic
-      btnExpand.addEventListener('click', () => {
-        collapsibles.forEach(({ codeWrap, toggleBtn, collapseIcon }) => {
-          codeWrap.style.display = '';
-          toggleBtn.style.display = 'flex';
-          collapseIcon.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2"/></svg>';
-        });
-      });
-      btnCollapse.addEventListener('click', () => {
-        collapsibles.forEach(({ codeWrap, toggleBtn, collapseIcon }) => {
-          codeWrap.style.display = 'none';
-          toggleBtn.style.display = 'none';
-          collapseIcon.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,10 8,6 12,10" fill="none" stroke="#888" stroke-width="2"/></svg>';
-        });
-      });
-      btnAuto.addEventListener('click', () => {
-        // Expand the first policy, collapse the rest
-        collapsibles.forEach(({ codeWrap, toggleBtn, collapseIcon }, idx) => {
-          if (idx === 0) {
-            codeWrap.style.display = '';
-            toggleBtn.style.display = 'flex';
-            collapseIcon.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2"/></svg>';
-          } else {
-            codeWrap.style.display = 'none';
-            toggleBtn.style.display = 'none';
-            collapseIcon.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,10 8,6 12,10" fill="none" stroke="#888" stroke-width="2"/></svg>';
-          }
-        });
-      });
-    }
-
-    // FIX: Define KEYWORDS and BUILTINS before tokenizeRego
-    const KEYWORDS = new Set(['package', 'import', 'default', 'else', 'if', 'then', 'true', 'false', 'null', 'not', 'with']);
-    const BUILTINS = new Set(['input', 'data', 'trace', 'http']); // small sample
-
-    function tokenizeRego(code) {
-      // global regex with alternation. 's' flag isn't universally supported in older browsers -> use [\s\S]
-      const tokenRe = /\/\*[\s\S]*?\*\/|\/\/.*|"(?:\\.|[^"\\])*"|\b\d+(\.\d+)?\b|\b[A-Za-z_][A-Za-z0-9_]*\b|==|!=|<=|>=|&&|\|\||[=<>+\-*/%]|[{}()[\].,:]/g;
-      let out = '';
-      let lastIndex = 0;
-      let m;
-      while ((m = tokenRe.exec(code)) !== null) {
-        // add plain text between tokens (should be none because regex covers many things, but keep safe)
-        if (m.index > lastIndex) {
-          out += escapeHtml(code.substring(lastIndex, m.index));
-        }
-        const tok = m[0];
-        let cls = '';
-        if (/^\/\*/.test(tok) || /^\/\//.test(tok)) {
-          cls = 'tok-comment';
-        } else if (/^"/.test(tok)) {
-          cls = 'tok-string';
-        } else if (/^\d/.test(tok)) {
-          cls = 'tok-number';
-        } else if (/^[A-Za-z_]/.test(tok)) {
-          if (KEYWORDS.has(tok)) cls = 'tok-keyword';
-          else if (BUILTINS.has(tok)) cls = 'tok-builtin';
-          else cls = 'tok-variable';
-        } else if (/^(==|!=|<=|>=|&&|\|\||[=<>+\-*/%])$/.test(tok)) {
-          cls = 'tok-operator';
-        } else {
-          cls = 'tok-punct';
-        }
-        out += '<span class="' + cls + '">' + escapeHtml(tok) + '</span>';
-        lastIndex = tokenRe.lastIndex;
-      }
-      if (lastIndex < code.length) {
-        out += escapeHtml(code.substring(lastIndex));
-      }
-      return out;
-    }
-
-    /* ---------- Coverage parsing: expand ranges like {start:{row:3},end:{row:5}} to line numbers ---------- */
-    function expandRangesToSet(ranges) {
-      const s = new Set();
-      if (!Array.isArray(ranges)) return s;
-      for (const r of ranges) {
-        if (!r || !r.start || typeof r.start.row !== 'number') continue;
-        const start = r.start.row;
-        const end = (r.end && typeof r.end.row === 'number') ? r.end.row : start;
-        for (let i = start; i <= end; i++) s.add(i);
-      }
-      return s;
-    }
-
-    function parseCoverageJson(jsonText, targetFile, totalLines) {
-      let data;
-      try { data = JSON.parse(jsonText); } catch (e) { throw new Error('Invalid JSON coverage file'); }
-      const files = data.files || {};
-      const covered = new Set();
-      // attempt to match by exact key or basename match
-      for (const key of Object.keys(files)) {
-        if (key === targetFile || key.endsWith('/' + targetFile) || basename(key) === targetFile) {
-          const info = files[key];
-          const s = expandRangesToSet(info.covered || []);
-          for (const l of s) covered.add(l);
-        }
-      }
-      const missed = new Set();
-      // mark missed = lines that exist but are not covered (you can change logic if you prefer neutral)
-      for (let i = 1; i <= totalLines; i++) {
-        if (!covered.has(i)) missed.add(i);
-      }
-      return { covered, missed };
-    }
-
-    /* ---------- Rendering ---------- */
-    function renderCodeTable(codeText, coverageData) {
-      const tbody = document.querySelector('#codeTable tbody');
-      tbody.innerHTML = '';
-      const lines = codeText.split(/\r?\n/);
-      for (let i = 0; i < lines.length; i++) {
-        const lineNumber = i + 1;
-        const tr = document.createElement('tr');
-        if (coverageData) {
-          if (coverageData.covered && coverageData.covered.has(lineNumber)) tr.classList.add('covered');
-          else if (coverageData.missed && coverageData.missed.has(lineNumber)) tr.classList.add('missed');
-        }
-        const tdLn = document.createElement('td');
-        tdLn.className = 'ln';
-        // The visible line number is a styled anchor for copy/share
-        const a = document.createElement('a');
-        a.href = `#policy1-L${lineNumber}`;
-        a.id = `policy1-L${lineNumber}`;
-        a.textContent = lineNumber;
-        a.style.textDecoration = 'none';
-        a.style.color = 'inherit';
-        a.style.cursor = 'default';
-        tdLn.appendChild(a);
-
-        const tdCode = document.createElement('td');
-        tdCode.className = 'code';
-        // highlight the single line — feed into tokenizer (tokenizeRego works on full code too)
-        // We call tokenizeRego on the line (not entire file) to avoid cross-line tokenization issues
-        tdCode.innerHTML = tokenizeRego(lines[i] || '');
-        tr.appendChild(tdLn);
-        tr.appendChild(tdCode);
-        tbody.appendChild(tr);
-      }
-    }
-
-    // --- Shared function to render a single policy file as a collapsible card ---
-    async function renderPolicyCard(container, f, covData, covText) {
-      // Collapsible container for each policy
-      const collapsible = document.createElement('div');
-      collapsible.style.marginBottom = '24px';
-      collapsible.style.border = '1px solid #eee';
-      collapsible.style.borderRadius = '6px';
-      collapsible.style.background = '#fafbfc';
-
-      // Header row with collapse/expand button, file name, and toggle button
-      const headerRow = document.createElement('div');
-      headerRow.style.display = 'flex';
-      headerRow.style.alignItems = 'center';
-      headerRow.style.margin = '0';
-      headerRow.style.padding = '10px 12px';
-      headerRow.style.cursor = 'pointer';
-      headerRow.style.userSelect = 'none';
-
-      // Collapse/expand icon
-      const collapseIcon = document.createElement('span');
-      collapseIcon.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2"/></svg>';
-      collapseIcon.style.marginRight = '10px';
-      headerRow.appendChild(collapseIcon);
-
-      // File header: basename, with full path in lighter font in brackets
-      const fileHeader = document.createElement('h2');
-      fileHeader.innerHTML = `${basename(f)} <span style="font-weight:400;font-size:13px;color:var(--muted);">(${escapeHtml(f)})</span>`;
-      fileHeader.style.margin = '0';
-      fileHeader.style.flex = '1';
-      fileHeader.style.fontSize = '16px';
-      headerRow.appendChild(fileHeader);
-
-      // Toggle button for coverage highlight (eye icon)
-      const toggleBtn = document.createElement('button');
-      toggleBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Toggle coverage highlight on and off</title><path d="M10 4C5.45455 4 2.27273 8.18182 2.27273 10C2.27273 11.8182 5.45455 16 10 16C14.5455 16 17.7273 11.8182 17.7273 10C17.7273 8.18182 14.5455 4 10 4Z" stroke="#888" stroke-width="1.5"/><circle cx="10" cy="10" r="3" stroke="#888" stroke-width="1.5"/></svg>';
-      toggleBtn.title = 'Toggle coverage highlight on and off';
-      toggleBtn.setAttribute('aria-label', 'Toggle coverage highlight on and off');
-      toggleBtn.style.background = 'none';
-      toggleBtn.style.border = 'none';
-      toggleBtn.style.cursor = 'pointer';
-      toggleBtn.style.padding = '0 0 0 8px';
-      toggleBtn.style.display = 'flex';
-      toggleBtn.style.alignItems = 'center';
-      toggleBtn.style.height = '28px';
-      toggleBtn.style.marginLeft = '8px';
-      headerRow.appendChild(toggleBtn);
-
-      // Coverage percentage for this file from its 'coverage' field in coverage.json
-      let pct = '';
-      let fileCoveredLines = 0;
-      let fileNotCoveredLines = 0;
-      if (covData.files) {
-        // Try to match by exact key, or by basename
-        let fileEntry = covData.files[f];
-        if (!fileEntry) {
-          // Try to find by basename
-          const base = basename(f);
-          for (const key of Object.keys(covData.files)) {
-            if (basename(key) === base) {
-              fileEntry = covData.files[key];
-              break;
-            }
-          }
-        }
-        if (fileEntry && fileEntry.coverage !== undefined) {
-          pct = fileEntry.coverage > 1 ? fileEntry.coverage.toFixed(0) + '%' : (fileEntry.coverage * 100).toFixed(0) + '%';
-        }
-        fileCoveredLines = fileEntry && fileEntry.covered_lines !== undefined ? fileEntry.covered_lines : 0;
-        fileNotCoveredLines = fileEntry && fileEntry.not_covered_lines !== undefined ? fileEntry.not_covered_lines : 0;
-      }
-      const pctSpan = document.createElement('span');
-      pctSpan.textContent = pct;
-      pctSpan.title = basename(f) + "'s coverage";
-      pctSpan.style.marginLeft = '8px';
-      pctSpan.style.color = 'var(--muted)';
-      pctSpan.style.fontSize = '14px';
-      headerRow.appendChild(pctSpan);
-      // Add summary for this policy
-      const fileSummary = document.createElement('span');
-      fileSummary.innerHTML = `<span style='margin-left:12px;'><strong>Covered lines:</strong> ${fileCoveredLines}</span> <span style='margin-left:12px;'><strong>Not covered lines:</strong> ${fileNotCoveredLines}</span>`;
-      fileSummary.style.color = 'var(--muted)';
-      fileSummary.style.fontSize = '13px';
-      headerRow.appendChild(fileSummary);
-
-      collapsible.appendChild(headerRow);
-
-      // Code viewer
-      const codeWrap = document.createElement('div');
-      codeWrap.className = 'code-wrap';
-      codeWrap.style.margin = '0';
-      const codeTable = document.createElement('table');
-      codeTable.className = 'code-table';
-      codeTable.innerHTML = '<tbody></tbody>';
-      codeWrap.appendChild(codeTable);
-      collapsible.appendChild(codeWrap);
-
-      container.appendChild(collapsible);
-
-      // Fetch code and coverage, then render
-      try {
-        const codeText = await fetchTextOrThrow(f);
-        const totalLines = codeText.split(/\r?\n/).length;
-        const coverageData = parseCoverageJson(covText, f, totalLines);
-        // Render code table
-        const tbody = codeTable.querySelector('tbody');
-        tbody.innerHTML = '';
-        const lines = codeText.split(/\r?\n/);
-        for (let i = 0; i < lines.length; i++) {
-          const lineNumber = i + 1;
-          const tr = document.createElement('tr');
-          tr.id = `${policyPrefix}-L${lineNumber}-row`;
-          // Determine if this line should be ignored (non-executable)
-          const trimmed = lines[i].trim();
-          const isComment = trimmed.startsWith('#');
-          const isImport = trimmed.startsWith('import ');
-          const isIgnored =
-            trimmed === '' ||
-            trimmed === '}' ||
-            trimmed.startsWith('package ') ||
-            isImport ||
-            isComment;
-          if (isIgnored) {
-            tr.classList.add('ignored');
-          } else if (coverageData) {
-            if (coverageData.covered && coverageData.covered.has(lineNumber)) tr.classList.add('covered');
-            else if (coverageData.missed && coverageData.missed.has(lineNumber)) tr.classList.add('missed');
-          }
-          const tdLn = document.createElement('td');
-          tdLn.className = 'ln';
-          // The visible line number is a styled anchor for copy/share
-          const a = document.createElement('a');
-          a.href = `#policy1-L${lineNumber}`;
-          a.id = `policy1-L${lineNumber}`;
-          a.textContent = lineNumber;
-          a.style.textDecoration = 'none';
-          a.style.color = 'inherit';
-          a.style.cursor = 'default';
-          tdLn.appendChild(a);
-          const tdCode = document.createElement('td');
-          tdCode.className = 'code';
-          tdCode.innerHTML = tokenizeRego(lines[i] || '');
-          tr.appendChild(tdLn);
-          tr.appendChild(tdCode);
-          tbody.appendChild(tr);
-        }
-        // Toggle coverage highlight functionality
-        let highlightOn = true;
-        toggleBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          highlightOn = !highlightOn;
-          const rows = codeTable.querySelectorAll('tbody tr');
-          rows.forEach(r => {
-            if (highlightOn) {
-              // reapply classes from coverageData
-              const idx = Array.from(rows).indexOf(r) + 1;
-              r.classList.remove('covered', 'missed');
-              if (coverageData.covered && coverageData.covered.has(idx)) r.classList.add('covered');
-              else if (coverageData.missed && coverageData.missed.has(idx)) r.classList.add('missed');
-            } else {
-              r.classList.remove('covered', 'missed');
-            }
-          });
-        });
-        // Collapse/expand functionality
-        let collapsed = false;
-        headerRow.addEventListener('click', () => {
-          collapsed = !collapsed;
-          codeWrap.style.display = collapsed ? 'none' : '';
-          toggleBtn.style.display = collapsed ? 'none' : 'flex';
-          pctSpan.style.display = 'inline'; // Always show percentage
-          collapseIcon.innerHTML = collapsed
-            ? '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,10 8,6 12,10" fill="none" stroke="#888" stroke-width="2"/></svg>'
-            : '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2"/></svg>';
-        });
-      } catch (e) {
-        const errMsg = document.createElement('div');
-        errMsg.style.color = 'red';
-        errMsg.textContent = 'Error loading file: ' + f + ' — ' + e.message;
-        collapsible.appendChild(errMsg);
-      }
-    }
-
-
-        // --- Render verbose.txt as a test results table inside verbose-main ---
-    async function renderVerbose(verbosePath) {
-
-      try {
-        const response = await fetch(verbosePath);
-        if (!response.ok) return;
-        const text = await response.text();
-
-        const lines = text.split('\n');
-        const tableData = [];
-        let currentFile = null;
-        const fileHeaderRe = /^([\w\/-]+\.rego):$/;
-        const testLineRe = /^([^\s:]+):\s+(PASS|FAIL)\s+\(([^)]+)\)$/;
-        for (const line of lines) {
-          const fileMatch = line.match(fileHeaderRe);
-          if (fileMatch) {
-            currentFile = fileMatch[1];
-            continue;
-          }
-          const testMatch = line.match(testLineRe);
-          if (testMatch && currentFile) {
-            tableData.push({
-              file: currentFile,
-              test: testMatch[1],
-              result: testMatch[2],
-              time: testMatch[3]
-            });
-          }
-        }
-        if (!tableData.length) return;
-        const table = document.getElementById('table-verbose');
-        table.className = 'verbose-table';
-        table.style.margin = '32px 0 24px 0';
-        table.style.borderCollapse = 'collapse';
-        table.innerHTML = `
-        <thead>
-          <tr>
-            <th style="padding:6px 12px; border:1px solid #ccc;">Test File</th>
-            <th style="padding:6px 12px; border:1px solid #ccc;">Test Name</th>
-            <th style="padding:6px 12px; border:1px solid #ccc;">Result</th>
-            <th style="padding:6px 12px; border:1px solid #ccc;">Time</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${tableData.map(row => {
-            // Determine status class
-            let statusClass = 'status-other';
-            if (row.result === 'PASS') statusClass = 'status-pass';
-            else if (row.result === 'FAIL') statusClass = 'status-fail';
-            // Determine time class: only highlight if >100ms and unit is ms
-            let timeClass = '';
-            const msMatch = row.time.match(/^([0-9]+)\s*ms$/i);
-            if (msMatch && parseInt(msMatch[1], 10) > 100) timeClass = 'time-slow';
-            return `
-            <tr>
-              <td style="padding:6px 12px; border:1px solid #eee;">${row.file}</td>
-              <td style="padding:6px 12px; border:1px solid #eee;">${row.test}</td>
-              <td class="${statusClass}" style="padding:6px 12px; border:1px solid #eee;">${row.result}</td>
-              <td class="${timeClass}" style="padding:6px 12px; border:1px solid #eee;">${row.time}</td>
-            </tr>
-            `;
-          }).join('')}
-        </tbody>
-      `;
-
-        // Fill the collapsible pre with the raw verbose.txt content
-        const pre = document.getElementById('verbose-pre');
-        if (pre) pre.textContent = text;
-        setupVerbosePreControls();
-
-        // Attach collapse/copy logic for verbose-pre after it is rendered
-        function setupVerbosePreControls() {
-          const preHeader = document.getElementById('verbose-pre-header');
-          const preCollapse = document.getElementById('verbose-pre-collapse');
-          const preElem = document.getElementById('verbose-pre');
-          const copyBtn = document.getElementById('verbose-pre-copy');
-          let collapsed = false;
-          if (preHeader && preElem && preCollapse) {
-            preHeader.addEventListener('click', function (e) {
-              if (e.target === copyBtn) return;
-              collapsed = !collapsed;
-              preElem.style.display = collapsed ? 'none' : '';
-              preCollapse.innerHTML = collapsed
-                ? '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,10 8,6 12,10" fill="none" stroke="#888" stroke-width="2"/></svg>'
-                : '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2"/></svg>';
-            });
-          }
-          if (copyBtn && preElem) {
-            copyBtn.addEventListener('mousedown', function (e) { e.stopPropagation(); });
-            copyBtn.addEventListener('click', function (e) {
-              e.stopPropagation();
-              navigator.clipboard.writeText(preElem.textContent).then(() => {
-                copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copied!</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/><polyline points="7,13 10,16 15,9" fill="none" stroke="#4caf50" stroke-width="2"/></svg>';
-                setTimeout(() => {
-                  copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy verbose.txt to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>';
-                }, 1200);
-              });
-            });
-          }
-        }
-
-      } catch (e) { /* ignore */ }
-    }
-    document.addEventListener('DOMContentLoaded', function () {
-      // Collapse coverage-pre and verbose-pre by default
-      function collapsePre(headerId, preId, collapseId) {
-        const header = document.getElementById(headerId);
-        const pre = document.getElementById(preId);
-        const collapse = document.getElementById(collapseId);
-        if (header && pre && collapse) {
-          pre.style.display = 'none';
-          collapse.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,10 8,6 12,10" fill="none" stroke="#888" stroke-width="2"/></svg>';
-        }
-      }
-      collapsePre('coverage-pre-header', 'coverage-pre', 'coverage-pre-collapse');
-      collapsePre('verbose-pre-header', 'verbose-pre', 'verbose-pre-collapse');
-      renderVerbose('/verbose.txt');
-    });
-
-    /* ---------- File loading & orchestration ---------- */
-
-    async function fetchTextOrThrow(path) {
-      const r = await fetch(path, { cache: 'no-store' });
-      if (!r.ok) throw new Error(`Failed to fetch "${path}": ${r.status} ${r.statusText}`);
-      return r.text();
-    }
-
-    let currentCodeText = '';
-    let currentCoverage = null;
-
-    /* ---------- UI wiring ---------- */
-    // Always load /coverage.json on page load
-    showPolicyFileSelector('/coverage.json');
-    document.getElementById('fileName').textContent = 'All';
-    document.getElementById('covName').textContent = '—';
-    document.getElementById('viewer').style.display = 'none';
-  </script>
-  </script>
-  <script>
-    // Add copy-to-clipboard logic for all copy buttons in the report (for static HTML output)
-    window.addEventListener('DOMContentLoaded', function () {
-      // Find all policy containers
-      const policyDivs = Array.from(document.querySelectorAll('div')).filter(div =>
-        div.style && div.style.borderRadius === '6px' && div.querySelector('h2')
-      );
-      policyDivs.forEach(div => {
-        // Find the copy button (second button in header)
-        const headerRow = div.querySelector('div');
-        if (!headerRow) return;
-        const buttons = headerRow.querySelectorAll('button');
-        if (buttons.length < 2) return;
-        const copyBtn = buttons[1];
-        // Find the code lines in the code table inside this policy
-        const codeTable = div.querySelector('.code-table');
-        if (!codeTable) return;
-        // On click, copy all code lines (plain text, not HTML)
-        copyBtn.addEventListener('mousedown', function (e) { e.stopPropagation(); });
-        copyBtn.addEventListener('click', function (e) {
-          e.stopPropagation();
-          // Get all code lines as text
-          const codeLines = Array.from(codeTable.querySelectorAll('td.code')).map(td => td.textContent);
-          const codeText = codeLines.join('\n');
-          navigator.clipboard.writeText(codeText).then(() => {
-            copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copied!</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/><polyline points="7,13 10,16 15,9" fill="none" stroke="#4caf50" stroke-width="2"/></svg>';
-            setTimeout(() => {
-              copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy policy to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>';
-            }, 1200);
-          }, () => {
-            copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy failed</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/><line x1="7" y1="7" x2="13" y2="13" stroke="#e53935" stroke-width="2"/><line x1="13" y1="7" x2="7" y2="13" stroke="#e53935" stroke-width="2"/></svg>';
-            setTimeout(() => {
-              copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy policy to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>';
-            }, 1200);
-          });
-        });
-      });
-    });
-  </script>
-</body>
-<script id="policy-controls-js">
-  // Policy controls for static HTML report
-  function setupPolicyControls() {
-    // Expand/collapse and highlight toggling for static report
-    // Find the label row with the three buttons
-    // Find buttons by ID
-    const btnAuto = document.getElementById('coverage-btn-auto');
-    const btnExpand = document.getElementById('coverage-btn-expand');
-    const btnCollapse = document.getElementById('coverage-btn-collapse');
-    if (!btnAuto || !btnExpand || !btnCollapse) return;
-    // Find all collapsible policy containers
-    const collapsibles = Array.from(document.querySelectorAll('div')).filter(div =>
-      div.style && div.style.borderRadius === '6px' && div.querySelector('h2')
-    );
-    // For each, get codeWrap, toggleBtn, headerRow, collapseIcon
-    const getParts = (collapsible) => {
-      const codeWrap = collapsible.querySelector('.code-wrap');
-      const toggleBtn = collapsible.querySelector('button');
-      const headerRow = collapsible.querySelector('div');
-      const collapseIcon = headerRow ? headerRow.querySelector('span') : null;
-      // Find copy button: it's the second button in the header
-      const buttons = headerRow ? headerRow.querySelectorAll('button') : [];
-      const copyBtn = buttons.length > 1 ? buttons[1] : null;
-      return { codeWrap, toggleBtn, headerRow, collapseIcon, copyBtn };
-    };
-    // Expand All
-    btnExpand.addEventListener('click', () => {
-      collapsibles.forEach(collapsible => {
-        const { codeWrap, toggleBtn, collapseIcon } = getParts(collapsible);
-        if (codeWrap) codeWrap.style.display = '';
-        if (toggleBtn) toggleBtn.style.display = 'flex';
-        if (collapseIcon) collapseIcon.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2"/></svg>';
-      });
-    });
-    // Collapse All
-    btnCollapse.addEventListener('click', () => {
-      collapsibles.forEach(collapsible => {
-        const { codeWrap, toggleBtn, collapseIcon } = getParts(collapsible);
-        if (codeWrap) codeWrap.style.display = 'none';
-        if (toggleBtn) toggleBtn.style.display = 'none';
-        if (collapseIcon) collapseIcon.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,10 8,6 12,10" fill="none" stroke="#888" stroke-width="2"/></svg>';
-      });
-    });
-    // Expand Automatic (expand only policies with uncovered lines)
-    btnAuto.addEventListener('click', () => {
-      collapsibles.forEach(collapsible => {
-        const { codeWrap, toggleBtn, collapseIcon } = getParts(collapsible);
-        // Check if this policy has any missed lines
-        const codeTable = collapsible.querySelector('.code-table');
-        let hasMissed = false;
-        if (codeTable) {
-          const rows = codeTable.querySelectorAll('tbody tr');
-          hasMissed = Array.from(rows).some(r => r.classList.contains('missed') || r.dataset.missed === 'true');
-        }
-        if (hasMissed) {
-          if (codeWrap) codeWrap.style.display = '';
-          if (toggleBtn) toggleBtn.style.display = 'flex';
-          if (collapseIcon) collapseIcon.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2"/></svg>';
-        } else {
-          if (codeWrap) codeWrap.style.display = 'none';
-          if (toggleBtn) toggleBtn.style.display = 'none';
-          if (collapseIcon) collapseIcon.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,10 8,6 12,10" fill="none" stroke="#888" stroke-width="2"/></svg>';
-        }
-      });
-    });
-
-    // Highlight toggle for each policy
-    // Eye icon SVGs
-    const eyeOpen = '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Toggle coverage highlight on and off</title><path d="M10 4C5.45455 4 2.27273 8.18182 2.27273 10C2.27273 11.8182 5.45455 16 10 16C14.5455 16 17.7273 11.8182 17.7273 10C17.7273 8.18182 14.5455 4 10 4Z" stroke="#888" stroke-width="1.5"/><circle cx="10" cy="10" r="3" stroke="#888" stroke-width="1.5"/></svg>';
-    const eyeClosed = '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Show highlights</title><path d="M2 2L18 18" stroke="#888" stroke-width="1.5"/><path d="M10 4C5.45455 4 2.27273 8.18182 2.27273 10C2.27273 11.8182 5.45455 16 10 16C14.5455 16 17.7273 11.8182 17.7273 10C17.7273 8.18182 14.5455 4 10 4Z" stroke="#888" stroke-width="1.5"/><circle cx="10" cy="10" r="3" stroke="#888" stroke-width="1.5"/></svg>';
-    collapsibles.forEach(collapsible => {
-      const codeTable = collapsible.querySelector('.code-table');
-      const toggleBtn = collapsible.querySelector('button');
-      if (!codeTable || !toggleBtn) return;
-      let highlightOn = true;
-      // Save original highlight state for each row
-      const rows = codeTable.querySelectorAll('tbody tr');
-      rows.forEach(r => {
-        r.dataset.covered = r.classList.contains('covered');
-        r.dataset.missed = r.classList.contains('missed');
-        r.dataset.ignored = r.classList.contains('ignored');
-      });
-      toggleBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        highlightOn = !highlightOn;
-        if (!highlightOn) {
-          // Remove all highlight classes
-          rows.forEach(r => {
-            r.classList.remove('covered', 'missed', 'ignored');
-          });
-          toggleBtn.innerHTML = eyeClosed;
-        } else {
-          // Restore highlight classes
-          rows.forEach(r => {
-            if (r.dataset.covered === 'true') r.classList.add('covered');
-            if (r.dataset.missed === 'true') r.classList.add('missed');
-            if (r.dataset.ignored === 'true') r.classList.add('ignored');
-          });
-          toggleBtn.innerHTML = eyeOpen;
-        }
-      });
-      // Set initial icon
-      toggleBtn.innerHTML = eyeOpen;
-    });
-
-    // Collapse/expand for each policy header
-    collapsibles.forEach(collapsible => {
-      const { codeWrap, toggleBtn, headerRow, collapseIcon } = getParts(collapsible);
-      if (!headerRow) return;
-      let collapsed = false;
-      headerRow.addEventListener('click', () => {
-        collapsed = !collapsed;
-        if (codeWrap) codeWrap.style.display = collapsed ? 'none' : '';
-        if (toggleBtn) toggleBtn.style.display = collapsed ? 'none' : 'flex';
-        if (collapseIcon) collapseIcon.innerHTML = collapsed
-          ? '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,10 8,6 12,10" fill="none" stroke="#888" stroke-width="2"/></svg>'
-          : '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2"/></svg>';
-      });
-    });
-
-    // Copy-to-clipboard logic for copy buttons in each policy
-    collapsibles.forEach(collapsible => {
-      const { copyBtn } = getParts(collapsible);
-      if (!copyBtn) return;
-      // Find the code table inside this policy
-      const codeTable = collapsible.querySelector('.code-table');
-      if (!codeTable) return;
-      copyBtn.addEventListener('mousedown', function (e) { e.stopPropagation(); });
-      copyBtn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        // Get all code lines as text
-        const codeLines = Array.from(codeTable.querySelectorAll('td.code')).map(td => td.textContent);
-        const codeText = codeLines.join('\n');
-        navigator.clipboard.writeText(codeText).then(() => {
-          copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copied!</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/><polyline points="7,13 10,16 15,9" fill="none" stroke="#4caf50" stroke-width="2"/></svg>';
-          setTimeout(() => {
-            copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy policy to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>';
-          }, 1200);
-        }, () => {
-          copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy failed</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/><line x1="7" y1="7" x2="13" y2="13" stroke="#e53935" stroke-width="2"/><line x1="13" y1="7" x2="7" y2="13" stroke="#e53935" stroke-width="2"/></svg>';
-          setTimeout(() => {
-            copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy policy to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>';
-          }, 1200);
-        });
-      });
-    });
-
-    setTimeout(function () {
-      if (window.location.hash && /^#policy\d+-L\d+$/.test(window.location.hash)) {
-        const anchor = window.location.hash.substring(1);
-        const el = document.getElementById(anchor);
-        if (el) {
-          // Try closest('tr'), fallback to parentNode.parentNode
-          let tr = el.closest && el.closest('tr');
-          if (!tr && el.parentNode && el.parentNode.parentNode && el.parentNode.parentNode.tagName === 'TR') {
-            tr = el.parentNode.parentNode;
-          }
-          if (tr) {
-            tr.classList.add('shimmer');
-            setTimeout(() => tr.classList.remove('shimmer'), 3000);
-          }
-        }
-      }
-    }, 0);
-
-    setupCoveragePreControls();
-  }
-
-              // Attach collapse/copy logic for verbose-pre after it is rendered
-        function setupCoveragePreControls() {
-          const preHeader = document.getElementById('coverage-pre-header');
-          const preCollapse = document.getElementById('coverage-pre-collapse');
-          const preElem = document.getElementById('coverage-pre');
-          const copyBtn = document.getElementById('coverage-pre-copy');
-          let collapsed = false;
-          if (preHeader && preElem && preCollapse) {
-            preHeader.addEventListener('click', function (e) {
-              if (e.target === copyBtn) return;
-              collapsed = !collapsed;
-              preElem.style.display = collapsed ? 'none' : '';
-              preCollapse.innerHTML = collapsed
-                ? '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,10 8,6 12,10" fill="none" stroke="#888" stroke-width="2"/></svg>'
-                : '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2"/></svg>';
-            });
-          }
-          if (copyBtn && preElem) {
-            copyBtn.addEventListener('mousedown', function (e) { e.stopPropagation(); });
-            copyBtn.addEventListener('click', function (e) {
-              e.stopPropagation();
-              navigator.clipboard.writeText(preElem.textContent).then(() => {
-                copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copied!</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/><polyline points="7,13 10,16 15,9" fill="none" stroke="#4caf50" stroke-width="2"/></svg>';
-                setTimeout(() => {
-                  copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy verbose.txt to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>';
-                }, 1200);
-              });
-            });
-          }
-        }
-
-
-  window.addEventListener('DOMContentLoaded', setupPolicyControls);
-
-        // Attach collapse/copy logic for verbose-pre after it is rendered
-        function setupVerbosePreControls() {
-          const preHeader = document.getElementById('verbose-pre-header');
-          const preCollapse = document.getElementById('verbose-pre-collapse');
-          const preElem = document.getElementById('verbose-pre');
-          const copyBtn = document.getElementById('verbose-pre-copy');
-          let collapsed = false;
-          if (preHeader && preElem && preCollapse) {
-            preHeader.addEventListener('click', function (e) {
-              if (e.target === copyBtn) return;
-              collapsed = !collapsed;
-              preElem.style.display = collapsed ? 'none' : '';
-              preCollapse.innerHTML = collapsed
-                ? '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,10 8,6 12,10" fill="none" stroke="#888" stroke-width="2"/></svg>'
-                : '<svg width="16" height="16" viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2"/></svg>';
-            });
-          }
-          if (copyBtn && preElem) {
-            copyBtn.addEventListener('mousedown', function (e) { e.stopPropagation(); });
-            copyBtn.addEventListener('click', function (e) {
-              e.stopPropagation();
-              navigator.clipboard.writeText(preElem.textContent).then(() => {
-                copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copied!</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/><polyline points="7,13 10,16 15,9" fill="none" stroke="#4caf50" stroke-width="2"/></svg>';
-                setTimeout(() => {
-                  copyBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy verbose.txt to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>';
-                }, 1200);
-              });
-            });
-          }
-        }
-
-          window.addEventListener('DOMContentLoaded', setupVerbosePreControls);
-
-
-</script>
-
-<div id="verbose-main"
-  style="margin: 16px; border: 2px solid #bbb; border-radius: 10px; padding: 18px 10px 0px 10px; background: #f8f8f8">
-
-  <div style="font-weight:bold; font-size:16px; margin-bottom:10px;">Unit test results - verbose</div>
-
-  <div class="legend" id="verbose-legend" style="margin: 10px 0 24px 0;">
-    <span><span class="legend-swatch" style="background: var(--covered); border-color: #b2e6b2;"></span>PASS</span>
-    <span><span class="legend-swatch" style="background: var(--missed); border-color: #e6b2b2;"></span>FAIL</span>
-    <span><span class="legend-swatch" style="background: #e6f0ff; border-color: #2196F3;"></span>Other</span>
-    <span><span class="legend-swatch" style="background: #ffeacc; border-color: #ffd699;"></span>Time > 100ms</span>
-  </div>
-
-  <table id="table-verbose"></table>
-
-  <div id="verbose-pre-container"
-    style="margin: 0 0 24px 0; border: 1px solid #eee; border-radius: 6px; background: #fafbfc;">
-    <div id="verbose-pre-header"
-      style="display: flex; align-items: center; padding: 10px 12px; cursor: pointer; user-select: none;">
-      <span id="verbose-pre-collapse" style="margin-right: 10px;">
-        <svg width="16" height="16" viewBox="0 0 16 16">
-          <polyline points="4,6 8,10 12,6" fill="none" stroke="#888" stroke-width="2" />
-        </svg>
-      </span>
-      <h2 style="margin: 0; flex: 1; font-size: 16px;">Raw verbose.txt output</h2>
-      <button id="verbose-pre-copy" title="Copy verbose.txt content" aria-label="Copy verbose.txt content"
-        style="background: none; border: none; cursor: pointer; padding: 0 0 0 8px; display: flex; align-items: center; height: 28px; margin-left: 8px;">
-        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <title>Copy verbose.txt to clipboard</title>
-          <rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff" />
-          <rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7" />
-        </svg>
-      </button>
-    </div>
-    <pre id="verbose-pre"
-      style="margin: 0; padding: 16px; font-size: 14px; overflow-x: auto; border-radius: 0 0 6px 6px; background: #fff; border-top: 1px solid #eee;">
-    </pre>
-  </div>
-
-</div>
-
-<div id="footer">
-  <pre>
-    Welcome to Polly Rego Policy Coverage Report utility!
-
-    :::::::::::::::::::::::::::------::.+#+=::::::::::::::::::::::::::::::
-    ::::::::::::::::::::::::-+*********+=:*##*::::::::::::::::::::::::::::
-    ::::------------------=*#**************#*#=:-====-::::::::::::::::::::
-    :::++++++++++++++++++*#***************##*##*********=:::::::::::::::::
-    ::-*+++++++++==++++=*#*##***************************#*-.::::::::::::::
-    ::-*+++++++=--=+++++####***************#**************#-::::::::::::::
-    ::-*++=-++=:-=++++++*+#****************#***************#+-::::=+::::::
-    ::-*++=:---=++++++++++#**********#*====#*******************++**#=:::::
-    ::-*++++--++++++++++++##**********-=====*******##**************#+:::::
-    ::-*++++++++=-=+++++*#**#*******##====+++**+++=*#*************#+::::::
-    ::-*++==++=--=++++++#*#*+++++++++===========---+#*************#+::::::
-    ::-*++=:--:=+++++++*#*#***+=-===-====*******+===****************#-::::
-    ::-*+++=--=+++++++++%#+==+*#+======**+++++=+**=-=*#***************::::
-    ::-*++++++++=-=++++#**=+=-=*#*====#*++=---++=*#==-=*##***********#-:::
-    ::-*++==+++-:-++++*#*#+-...-*#==-**++:.::::=*=#+===+#************#::::
-    ::-*++=:==:-=+++++##*#*:-++-+#*++#+*::+*+-::*=*#***##***********#+::::
-    ::-*+++=::=+++++++#*=#*:*%%*+%***#*+:+%%%*::*=#*===#**********##=:::::
-    ::-*++++=++++==++++#**+=*%#*+++++##*:*%#%*:+++#==+##*********#=:::::::
-    ::-*+++++++=--=+++=*#+=+**==---===*#+=*#*==++#+===++##******#=..::::::
-    ::-*++=-==--=++++++*=+***======+=-=+#**++****======-*#*****#-.:-::::::
-    ::-*+++-::-++++++++*-==#=-=========-+#***++=========#******#==*#::::::
-    ::-*++++==+++++++++#+-=#=-==========#*=++-=========+#*********#+::::::
-    :::+++++++++++++++++#+=+*=-+***#####%+-*+-======-=*#****##****+:::::::
-    ::::--------====-----=+++*+*=*+%#**#*-=*========*##**##*##+--:::::::::
-    ::::::::::-*****+-:::::-=+*+=+*+***+=+*=====++*##*%#*##+==::::::::::::
-    :::::::::-#*******:::::::::-==+*++++*+===++#+:-=+++---::::::::::::::::
-    ::::::::.-#*****##+=::::::::..-#===========**-:..:::::::::::::=+**-:::
-    ::::::::=*****#*+++**:::::::-+#+-========++****+=:::::::::::=**++*+:::
-    :::::::=#+++++#+++*+#-.:::-+*#*+======++++**++++**=:::::::-**++++#-:::
-    :::::::-#*****#****+#+==+**+#*++++++++++++#+++++++*+:::::=*+++++#=::::
-    :::::::=#+++++*#*#+++++*+++**+++++++++++++#++++++++**-::=#+++++#++++::
-    :::::::=#++***#**##**++++++#++++++++++++++#++++++++++*--#+++++##*++#::
-    ::::::::-**+*##******#*+++**++++++++++++++*#*****+++++*#++++*#*+++#=::
-    ::::::::::-*#*********#++*#*++++++++++*****+++++++++++*#+++**++++*=:::
-    :::::::::::+**********#*+==#++++++++***++++++++++++++++#*+**+++**-::::
-    :::::::::::=#***#####**=---**+++++***+***++++++++++++++**++++**=::::::
-    :::::::::::-+*#*+++==------=***++**+**++***++++++++++***+++**+-::--:::
-    ===========+++============-:::-+*#+#*+*#*+++***++++*##*++**+==========
-    =========++=-==++=-----:--=+-::.=#**+*#+++*#*****+++++**+=============
-    ======+++-::=+-+++=++++=====+:-==-=**#****++==---::::-+#+++++++++=====
-    ====+*+-:::::+=:::------==+=+==-::::--==-::::::::::-==-+*+============
-    ====#========-====-------=+*=-:::::::::::::::::::-==-=-=#**+==========
-    ===*#===----======-------==-:::::::::::::::::::-==--=-=+*#*+==========
-    ==+###****++==---==-:.:==-:::::::::::::::::::-==-=--=**#*+============
-    ====++****###**++==++=*+=======---:::::::::-==-==-=**#*+==============
-    ==========+++**#####%%*+===---=======-:::-==-=--=**#*+================
-    ================+**######***++==----====+=-==-=*##*+==================
-    ==================+++++++***###**++==--=+--==*##*+====================
-    ===========================+++***###**+=+==*##*+======================
-    =================================++***###*##*+========================
-    ======================================++***+==========================
-    Created by @willemevenwel on GitHub
-  </pre>
-</div>
+  </main>
 
 </body>
-
 </html>
