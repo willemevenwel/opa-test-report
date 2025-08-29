@@ -9,23 +9,21 @@
 
 // --- Dynamic coverage report generation ---
 document.addEventListener('DOMContentLoaded', function () {
+  // --- Coverage summary and policy cards ---
   fetch('/coverage.json')
     .then(function(response) { return response.json(); })
     .then(function(data) {
-      // --- Update summary stats ---
       document.getElementById('totalPolicies').textContent = data.totalPolicies || Object.keys(data.files || {}).length || 0;
       document.getElementById('totalCoveragePercentage').textContent = (data.totalCoveragePercentage || data.coverage || '0') + '%';
       document.getElementById('totalCoveredLines').textContent = data.totalCoveredLines || data.covered_lines || 0;
       document.getElementById('totalNotCoveredLines').textContent = data.totalNotCoveredLines || data.not_covered_lines || 0;
 
-      // --- Render policy cards ---
       var ul = document.getElementById('coverage-details');
       var templateLi = ul.querySelector('li');
       if (!templateLi) return;
       var template = templateLi.cloneNode(true);
       ul.innerHTML = '';
 
-      // Helper to get all covered, not_covered, ignored line numbers for a file
       function getLineStatusMap(policy) {
         var statusMap = {};
         if (Array.isArray(policy.ignored)) {
@@ -46,11 +44,9 @@ document.addEventListener('DOMContentLoaded', function () {
         return statusMap;
       }
 
-      // For each policy file, fetch its content and build the code table
       Object.entries(data.files || {}).forEach(function([path, policy], idx) {
         policy.path = path;
         var li = template.cloneNode(true);
-        // Remove raw coverage section from all but the first card
         if (idx > 0) {
           var rawDiv = li.querySelector('#coverage-raw');
           if (rawDiv) rawDiv.remove();
@@ -74,7 +70,6 @@ document.addEventListener('DOMContentLoaded', function () {
         var codeTable = li.querySelector('.code-table tbody');
         if (codeTable) {
           codeTable.innerHTML = '';
-          // Fetch the policy file content
           fetch('/' + path)
             .then(function(resp) { return resp.ok ? resp.text() : ''; })
             .then(function(text) {
@@ -115,15 +110,74 @@ document.addEventListener('DOMContentLoaded', function () {
         ul.appendChild(li);
       });
 
-      // Populate the raw coverage section's <pre> with the JSON
       var rawPre = document.querySelector('#coverage-raw pre');
       if (rawPre) {
         rawPre.textContent = JSON.stringify(data, null, 2);
       }
     })
     .catch(function(err) {
-      // Optionally show an error message
       console.error('Failed to load coverage.json', err);
+    });
+
+  // --- Verbose table and raw section ---
+  fetch('/verbose.txt')
+    .then(function(response) { if (!response.ok) return null; return response.text(); })
+    .then(function(text) {
+      if (!text) return;
+      var lines = text.split('\n');
+      var tableData = [];
+      var currentFile = null;
+      var fileHeaderRe = /^([\w\/-]+\.rego):$/;
+      var testLineRe = /^([^\s:]+):\s+(PASS|FAIL)\s+\(([^)]+)\)$/;
+      lines.forEach(function(line) {
+        var fileMatch = line.match(fileHeaderRe);
+        if (fileMatch) {
+          currentFile = fileMatch[1];
+          return;
+        }
+        var testMatch = line.match(testLineRe);
+        if (testMatch && currentFile) {
+          tableData.push({
+            file: currentFile,
+            test: testMatch[1],
+            result: testMatch[2],
+            time: testMatch[3]
+          });
+        }
+      });
+      if (!tableData.length) return;
+      var table = document.getElementById('table-verbose');
+      if (!table) return;
+      var tbody = document.createElement('tbody');
+      tableData.forEach(function(row) {
+        var tr = document.createElement('tr');
+        var statusClass = 'status-other';
+        if (row.result === 'PASS') statusClass = 'status-pass';
+        else if (row.result === 'FAIL') statusClass = 'status-fail';
+        var timeClass = '';
+        var msMatch = row.time.match(/^([0-9]+)\s*ms$/i);
+        if (msMatch && parseInt(msMatch[1], 10) > 100) timeClass = 'time-slow';
+        var tdTest = document.createElement('td');
+        tdTest.textContent = row.test;
+        var tdStatus = document.createElement('td');
+        tdStatus.textContent = row.result;
+        tdStatus.className = statusClass;
+        var tdTime = document.createElement('td');
+        tdTime.textContent = row.time;
+        if (timeClass) tdTime.className = timeClass;
+        tr.appendChild(tdTest);
+        tr.appendChild(tdStatus);
+        tr.appendChild(tdTime);
+        tbody.appendChild(tr);
+      });
+      // Remove old tbody if present
+      var oldTbody = table.querySelector('tbody');
+      if (oldTbody) table.removeChild(oldTbody);
+      table.appendChild(tbody);
+
+      // Fill the verbose raw <pre>
+      var verbosePre = document.querySelector('#verbose-raw pre');
+      if (verbosePre) verbosePre.textContent = text;
     });
 });
   </script>
