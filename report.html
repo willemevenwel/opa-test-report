@@ -19,7 +19,9 @@
         var eyeBtn = card.querySelector('.eye-btn');
         var codeWrap = card.querySelector('.code-wrap');
         if (eyeBtn && codeWrap) {
-          eyeBtn.addEventListener('click', function() {
+          eyeBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
             codeWrap.classList.toggle('highlight-off');
             // Animate the eye icon (swap SVG for open/closed)
             var svg = eyeBtn.querySelector('svg');
@@ -240,6 +242,7 @@
       padding: 18px 20px 24px 20px;
     }
 
+
     /* Coverage highlights for code-table rows */
     tr.covered td.code {
       background: #e6ffe6 !important;
@@ -249,6 +252,13 @@
     }
     tr.ignored td.code {
       background: #e6f0ff !important;
+    }
+
+    /* Hide highlights when highlight-off is set on code-wrap */
+    .highlight-off tr.covered td.code,
+    .highlight-off tr.missed td.code,
+    .highlight-off tr.ignored td.code {
+      background: none !important;
     }
 
     .legend {
