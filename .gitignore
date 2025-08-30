@@ -3,4 +3,5 @@ output/
 # Ignore OPA executables
 opa
 opa.exe
+scratch.txt
 
