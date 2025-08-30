@@ -56,11 +56,34 @@ function escapeHTML(str) {
     await page.goto(target, { waitUntil: 'networkidle0' });
     console.log("✅ - Loaded");
 
-    // Wait for the main viewer to be fully rendered (wait for at least one .code-table to exist)
-    await page.waitForSelector('.code-table', {timeout: 5000});
+    // Wait for coverage data to be processed (totalPolicies changes from default "10")
+    try {
+      await page.waitForFunction(() => {
+        const totalPolicies = document.getElementById('totalPolicies');
+        return totalPolicies && totalPolicies.textContent !== '10x';
+      }, { timeout: 8000 });
+      console.log("✅ - Coverage data processed");
+    } catch (error) {
+      console.log("⚠️  - Timeout waiting for data processing, capturing current state...");
+    }
 
-    // Optionally, wait a bit more for all dynamic scripts to finish
+    // Wait a bit more for all dynamic scripts to finish
     await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // Check if real data was loaded (not placeholder content)
+    const dataStatus = await page.evaluate(() => {
+      const coverageRaw = document.querySelector('#coverage-raw pre')?.textContent || '';
+      const verboseRaw = document.querySelector('#verbose-raw pre')?.textContent || '';
+      
+      const hasRealCoverage = coverageRaw.includes('"files"') && coverageRaw.includes('"coverage"');
+      const hasRealVerbose = verboseRaw.includes('PASS') || verboseRaw.includes('FAIL');
+      
+      return { 
+        coverage: hasRealCoverage ? '✅ Loaded.' : '❌☠️❌ missing/placeholder',
+        verbose: hasRealVerbose ? '✅ Loaded.' : '❌☠️❌ missing/placeholder'
+      };
+    });
+    console.log("📊 - Data status:", `coverage: ${dataStatus.coverage}, verbose: ${dataStatus.verbose}`);
 
     const staticHTML = await page.evaluate(() => {
       console.log("ℹ️  - Page loaded. Cloning it for manipulation.");

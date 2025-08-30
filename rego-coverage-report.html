@@ -24,6 +24,31 @@
     .then(function(data) {
       console.log('Coverage data loaded.');
       
+      // Simple data validation
+      function validateCoverageData(data) {
+        var warnings = [];
+        
+        if (!data.files || Object.keys(data.files).length === 0) {
+          warnings.push('No policy files found in coverage data');
+        }
+        
+        var coverage = data.coverage || data.totalCoveragePercentage || 0;
+        if (coverage < 0 || coverage > 100) {
+          warnings.push('Coverage percentage seems invalid: ' + coverage + '%');
+        }
+        
+        if (warnings.length > 0) {
+          console.warn('⚠️ Data validation warnings: ' + warnings.join(', '));
+        }
+        
+        return warnings.length === 0;
+      }
+      
+      var isValid = validateCoverageData(data);
+      if (!isValid) {
+        console.log('⚠️ Coverage data has validation issues but proceeding...');
+      }
+      
       var totalPolicies = data.totalPolicies || Object.keys(data.files || {}).length || 0;
       console.log('Total policies found: ' + totalPolicies + '.');
       document.getElementById('totalPolicies').textContent = totalPolicies;
@@ -219,7 +244,7 @@
       // Hide the coverage main content and show error message
       var coverageMain = document.getElementById('coverage-main');
       if (coverageMain) {
-        coverageMain.innerHTML = '<h1 class="text-center" style="color: #e53935; font-weight: bold;">Unable to retrieve the contents of coverage.json.</h1>';
+        coverageMain.innerHTML = '<div style="text-align: center; padding: 40px;"><h1 style="color: #e53935; font-weight: bold; margin-bottom: 20px;">⚠️ Coverage Data Not Available</h1><p style="color: #666; font-size: 16px; margin-bottom: 15px;">Unable to load <code>coverage.json</code>. This usually means OPA tests haven\'t been run or failed to generate coverage data.</p><div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;"><p style="color: #888; font-size: 14px; margin-bottom: 10px;"><strong>To fix this, try running:</strong></p><code style="background: #fff; padding: 8px 12px; border-radius: 4px; display: block; color: #333;">opa test policies/ tests/ test_data/ --coverage &gt; coverage.json</code></div></div>';
       }
     });
 
@@ -355,7 +380,7 @@
       // Hide the verbose main content and show error message
       var verboseMain = document.getElementById('verbose-main');
       if (verboseMain) {
-        verboseMain.innerHTML = '<h2 class="text-center" style="color: #e53935; font-weight: bold;">Unable to retrieve the contents of verbose.txt.</h2>';
+        verboseMain.innerHTML = '<div style="text-align: center; padding: 40px;"><h2 style="color: #e53935; font-weight: bold; margin-bottom: 20px;">⚠️ Test Results Not Available</h2><p style="color: #666; font-size: 16px; margin-bottom: 15px;">Unable to load <code>verbose.txt</code>. This usually means OPA tests haven\'t been run with verbose output.</p><div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;"><p style="color: #888; font-size: 14px; margin-bottom: 10px;"><strong>To fix this, try running:</strong></p><code style="background: #fff; padding: 8px 12px; border-radius: 4px; display: block; color: #333;">opa test policies/ tests/ test_data/ --verbose &gt; verbose.txt</code></div></div>';
       }
     });
     
@@ -375,6 +400,86 @@
           mainElement.style.display = 'none';
         }
       }
+    }
+
+    // --- Export and sharing functions ---
+    function exportAsPDF() {
+      // Use browser's print functionality to generate PDF
+      var originalTitle = document.title;
+      document.title = 'OPA Coverage Report - ' + new Date().toISOString().split('T')[0];
+      
+      // Hide export buttons during print
+      var exportActions = document.querySelector('.export-actions');
+      if (exportActions) exportActions.style.display = 'none';
+      
+      window.print();
+      
+      // Restore after print
+      setTimeout(function() {
+        document.title = originalTitle;
+        if (exportActions) exportActions.style.display = 'flex';
+      }, 1000);
+    }
+
+    function exportAsJSON() {
+      var exportData = {
+        timestamp: new Date().toISOString(),
+        summary: {
+          totalPolicies: document.getElementById('totalPolicies')?.textContent || 'N/A',
+          totalCoverage: document.getElementById('totalCoveragePercentage')?.textContent || 'N/A',
+          coveredLines: document.getElementById('totalCoveredLines')?.textContent || 'N/A',
+          notCoveredLines: document.getElementById('totalNotCoveredLines')?.textContent || 'N/A'
+        },
+        generatedBy: 'OPA Test Report Tool'
+      };
+      
+      var dataStr = JSON.stringify(exportData, null, 2);
+      var dataBlob = new Blob([dataStr], {type: 'application/json'});
+      var url = URL.createObjectURL(dataBlob);
+      var link = document.createElement('a');
+      link.href = url;
+      link.download = 'opa-coverage-report-' + new Date().toISOString().split('T')[0] + '.json';
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function copySummary() {
+      var totalPolicies = document.getElementById('totalPolicies')?.textContent || 'N/A';
+      var totalCoverage = document.getElementById('totalCoveragePercentage')?.textContent || 'N/A';
+      var coveredLines = document.getElementById('totalCoveredLines')?.textContent || 'N/A';
+      var notCoveredLines = document.getElementById('totalNotCoveredLines')?.textContent || 'N/A';
+      
+      var summary = `🔍 OPA Coverage Report Summary
+                    📊 Overall Coverage: ${totalCoverage}
+                    📝 Total Policies: ${totalPolicies}
+                    ✅ Covered Lines: ${coveredLines}
+                    ❌ Not Covered Lines: ${notCoveredLines}
+                    📅 Generated: ${new Date().toLocaleDateString()}`;
+
+      navigator.clipboard.writeText(summary).then(function() {
+        // Show temporary success message
+        var btn = event.target;
+        var originalText = btn.innerHTML;
+        btn.innerHTML = '✅ Copied!';
+        setTimeout(function() {
+          btn.innerHTML = originalText;
+        }, 2000);
+      }).catch(function() {
+        // Fallback for older browsers
+        var textArea = document.createElement('textarea');
+        textArea.value = summary;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        var btn = event.target;
+        var originalText = btn.innerHTML;
+        btn.innerHTML = '✅ Copied!';
+        setTimeout(function() {
+          btn.innerHTML = originalText;
+        }, 2000);
+      });
     }
 
     // --- Highlight toggle and copy-to-clipboard logic for policy cards ---
@@ -603,6 +708,31 @@
           }
           
         }
+
+        // Export button tooltips
+        if (e.target.closest('.export-btn')) {
+          e.preventDefault();
+          e.stopPropagation();
+          var exportBtn = e.target.closest('.export-btn');
+          var tooltipMessage = '';
+          var btnText = exportBtn.textContent || exportBtn.innerText;
+          
+          if (btnText.includes('Export PDF')) {
+            tooltipMessage = 'PDF export ready for printing or saving.';
+          } else if (btnText.includes('Export JSON')) {
+            tooltipMessage = 'JSON report data downloaded successfully.';
+          } else if (btnText.includes('Copy Summary')) {
+            tooltipMessage = 'Report summary copied to clipboard.';
+          }
+          
+          if (tooltipMessage) {
+            createTooltip(exportBtn, tooltipMessage);
+            exportBtn.classList.add('btn-animate');
+            setTimeout(function(){ 
+              exportBtn.classList.remove('btn-animate'); 
+            }, 1200);
+          }
+        }
       });
 
       // --- Policy expand/collapse/auto buttons ---
@@ -619,6 +749,11 @@
             card.open = true; 
             updateToggleIcon(card);
           });
+          createTooltip(btnExpand, 'All policy details expanded for viewing.');
+          btnExpand.classList.add('btn-animate');
+          setTimeout(function(){ 
+            btnExpand.classList.remove('btn-animate'); 
+          }, 1200);
         });
       }
       if (btnCollapse) {
@@ -627,16 +762,31 @@
             card.open = false; 
             updateToggleIcon(card);
           });
+          createTooltip(btnCollapse, 'All policy details collapsed to summary view.');
+          btnCollapse.classList.add('btn-animate');
+          setTimeout(function(){ 
+            btnCollapse.classList.remove('btn-animate'); 
+          }, 1200);
         });
       }
       if (btnAuto) {
         btnAuto.addEventListener('click', function() {
+          var expandedCount = 0;
           getPolicyCards().forEach(function(card) {
             // Expand if there are any missed lines in the code-table
             var missed = card.querySelector('tr.missed');
             card.open = !!missed;
+            if (missed) expandedCount++;
             updateToggleIcon(card);
           });
+          var message = expandedCount > 0 ? 
+            'Expanded ' + expandedCount + ' policies with coverage issues.' : 
+            'No policies with coverage issues found.';
+          createTooltip(btnAuto, message);
+          btnAuto.classList.add('btn-animate');
+          setTimeout(function(){ 
+            btnAuto.classList.remove('btn-animate'); 
+          }, 1200);
         });
       }
 
@@ -688,6 +838,43 @@
       justify-content: space-between;
       align-items: center;
     }
+
+    /* Export buttons */
+    .export-actions {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      justify-content: center;
+    }
+    .export-btn {
+      background: var(--sq-card);
+      border: 1px solid var(--sq-border);
+      border-radius: 4px;
+      padding: 6px 12px;
+      font-family: var(--sq-font);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--sq-header);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .export-btn:hover {
+      background: var(--sq-table-header);
+      border-color: var(--sq-primary);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+      transform: translateY(-1px);
+    }
+    .export-btn:active {
+      transform: translateY(0);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .export-btn:focus {
+      outline: none;
+      border-color: var(--sq-primary);
+      box-shadow: 0 0 0 2px rgba(78, 145, 249, 0.2);
+    }
+
     .header-logo {
       height: 40px;
       width: auto;
@@ -704,7 +891,7 @@
       background: var(--sq-card);
       border-radius: 8px;
       box-shadow: 0 4px 16px rgba(0,0,0,0.06);
-      padding: 32px 28px 40px 28px;
+      padding: 14px 28px 40px 28px;
       border: 1px solid var(--sq-border);
     }
     h1, h2, h3 {
@@ -1138,6 +1325,11 @@
     </header>
   </div>
   <main>
+    <div class="export-actions">
+      <button onclick="exportAsPDF()" class="export-btn">📄 Export Report PDF</button>
+      <button onclick="exportAsJSON()" class="export-btn">📊 Export Summary JSON</button>
+      <button onclick="copySummary()" class="export-btn">📋 Copy Summary Details</button>
+    </div>
     <div id="main">
     <div id="coverage-main" class="card main-section">
     <h1 class="text-center">Policy Coverage Summary</h1>
@@ -1145,15 +1337,15 @@
         <tbody>
             <tr>
                 <td class="pr-24"><strong>Total Policies:</strong></td>
-                <td><div id="totalPolicies">10</div></td>
+                <td><div id="totalPolicies">10x</div></td>
                 <td class="pr-24"><strong>Total coverage:</strong></td>
-                <td><div id="totalCoveragePercentage" style="display: inline-block;">10%</div> <div class="pie-chart" id="totalPieChart" style="display: inline-block; margin-left: 8px; vertical-align: middle;"></div></td>
+                <td><div id="totalCoveragePercentage" style="display: inline-block;">10x%</div> <div class="pie-chart" id="totalPieChart" style="display: inline-block; margin-left: 8px; vertical-align: middle;"></div></td>
             </tr>
             <tr>
                 <td class="pr-24"><strong>Covered lines:</strong></td>
-                <td><div id="totalCoveredLines">10</div></td>
+                <td><div id="totalCoveredLines">10x</div></td>
                 <td class="pr-24"><strong>Not covered lines:</strong></td>
-                <td><div id="totalNotCoveredLines">10</div></td>
+                <td><div id="totalNotCoveredLines">10x</div></td>
             </tr>
         </tbody>
     </table>

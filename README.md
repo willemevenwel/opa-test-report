@@ -29,17 +29,59 @@ This project demonstrates how to write, test, and generate coverage reports for 
    # Or to specify platform:
    docker build --platform=linux/amd64 -t opa-test-report .
    ```
-3. Run as a webserver (port 3000): <code>docker run --rm -p 3000:3000 opa-test-report web</code>
-      - Visit: [http://localhost:3000](http://localhost:3000)
-         Node serves the rego-coverage-report.html at the root address. And upon loading the page expects the coverage report to be at /coverage.json and the verbose report at /verbose.txt.
-      - Enter a bash shell in the container:<br>
-         <code>docker run -it --rm opa-test-report bash</code>
+3. **Choose your mode of operation:**
+
+   **Web Server Mode (Interactive Development):**
+   ```sh
+   docker run --rm -p 3000:3000 opa-test-report web
+   ```
+   - Visit: [http://localhost:3000](http://localhost:3000)
+   - Great for development and testing
+   - Auto-refreshes when you rebuild the container
+
+   **Static Report Mode (Sharing/CI):**
+   ```sh
+   docker run --rm -v "$PWD/output:/app/output" opa-test-report my-report.html
+   ```
+   - Generates a self-contained HTML file in `output/my-report.html`
+   - Perfect for sharing via email, CI/CD artifacts, or static hosting
+
+   **Debug/Manual Mode (Troubleshooting):**
+   ```sh
+   docker run -it --rm opa-test-report bash
+   ```
+   - Opens an interactive shell inside the container
+   - Run OPA commands manually: `opa test policies/ tests/ --verbose`
+   - Inspect files, debug issues, or experiment with policies
+
 4. Generate a static HTML report (using Puppeteer/Chromium):
    ```sh
    docker run --rm -v "$PWD/output:/app/output" opa-test-report custom-report.html
    ```
    - The report will be saved as `output/custom-report.html`.
    - This uses Puppeteer/Chromium to render the HTML as it appears in the browser.
+
+## Expected Output
+
+After running the coverage report, you should see:
+
+### Coverage Metrics
+- **Total Coverage Percentage**: Overall percentage of policy lines covered by tests (e.g., 96.77%)
+- **Individual Policy Coverage**: Each `.rego` file in your `policies/` directory with its own coverage percentage
+- **Line-by-line Coverage**: Color-coded highlighting in the source code:
+  - 🟢 **Green lines**: Covered by tests
+  - 🔴 **Red lines**: Not covered by tests (need more tests)
+  - 🔵 **Blue lines**: Ignored (comments, imports, package declarations)
+
+### Test Results
+- **Test Status**: PASS/FAIL for each individual test
+- **Execution Time**: How long each test took (slow tests >100ms are highlighted)
+- **Test Organization**: Results grouped by policy file for easy navigation
+
+### Output Modes
+- **Web Mode** (`web`): Interactive report at http://localhost:3000 - great for development
+- **Static Mode** (`filename.html`): Self-contained HTML file - perfect for sharing or CI/CD  
+- **Debug Mode** (`bash`): Interactive shell for manual testing and troubleshooting
 
 ## Setup
 
@@ -101,7 +143,26 @@ Or download manually from: [https://openpolicyagent.org/downloads/latest/](https
 
 ---
 
-## Troubleshooting: Stopping a Stuck Web Server
+## Troubleshooting
+
+### Static Report Shows Only Raw Data
+If your generated HTML file shows JSON data instead of formatted tables and charts:
+- **Check the render logs**: Look for console output during static generation
+- **Verify data files**: Ensure `coverage.json` and `verbose.txt` contain real data, not empty/placeholder content
+- **Try web mode first**: Run `docker run --rm -p 3000:3000 opa-test-report web` to verify data loads correctly
+
+### Coverage Shows 0% or Missing Policies
+- **Check file structure**: Ensure your `.rego` files are in `policies/` directory
+- **Verify test naming**: Test functions must start with `test_` and use `if` keyword
+- **Check test data**: Ensure `test_data/` contains valid JSON files matching your policy structure
+- **Run tests manually**: Try `docker run -it --rm opa-test-report bash` then `opa test policies/ tests/ --verbose`
+
+### Permission Denied or Volume Mount Issues
+- **macOS/Linux**: Ensure Docker has permission to access your project directory
+- **Windows**: Check that your drive is shared with Docker Desktop
+- **Path issues**: Use absolute paths or ensure you're in the project root when running commands
+
+### Stopping a Stuck Web Server
 
 If you try to start the Node web server and get an error that port 3000 is already in use, you may have a previous server process still running. To stop it:
 
