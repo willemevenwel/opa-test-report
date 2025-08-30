@@ -86,7 +86,7 @@ function escapeHTML(str) {
     console.log("📊 - Data status:", `coverage: ${dataStatus.coverage}, verbose: ${dataStatus.verbose}`);
 
     const staticHTML = await page.evaluate(() => {
-      console.log("ℹ️  - Page loaded. Cloning it for manipulation.");
+      console.log("ℹ️  - Page rendered. Cloning it for manipulation.");
       const clone = document.documentElement.cloneNode(true);
       // Remove all <script> tags except the one with id='policy-controls-js'
       clone.querySelectorAll("script").forEach(s => {

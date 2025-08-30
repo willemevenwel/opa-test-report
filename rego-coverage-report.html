@@ -244,7 +244,7 @@
       // Hide the coverage main content and show error message
       var coverageMain = document.getElementById('coverage-main');
       if (coverageMain) {
-        coverageMain.innerHTML = '<div style="text-align: center; padding: 40px;"><h1 style="color: #e53935; font-weight: bold; margin-bottom: 20px;">⚠️ Coverage Data Not Available</h1><p style="color: #666; font-size: 16px; margin-bottom: 15px;">Unable to load <code>coverage.json</code>. This usually means OPA tests haven\'t been run or failed to generate coverage data.</p><div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;"><p style="color: #888; font-size: 14px; margin-bottom: 10px;"><strong>To fix this, try running:</strong></p><code style="background: #fff; padding: 8px 12px; border-radius: 4px; display: block; color: #333;">opa test policies/ tests/ test_data/ --coverage &gt; coverage.json</code></div></div>';
+        coverageMain.innerHTML = '<div style="text-align: center; padding: 40px;"><h1 style="color: #e53935; font-weight: bold; margin-bottom: 20px;">⚠️ Coverage Data Not Available</h1><p style="color: var(--text-secondary); font-size: 16px; margin-bottom: 15px;">Unable to load <code>coverage.json</code>. This usually means OPA tests haven\'t been run or failed to generate coverage data.</p><div style="background: var(--sq-card); padding: 20px; border-radius: 8px; margin: 20px 0;"><p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 10px;"><strong>To fix this, try running:</strong></p><code style="background: var(--sq-card); padding: 8px 12px; border-radius: 4px; display: block; color: var(--text-primary);">opa test policies/ tests/ test_data/ --coverage &gt; coverage.json</code></div></div>';
       }
     });
 
@@ -380,7 +380,7 @@
       // Hide the verbose main content and show error message
       var verboseMain = document.getElementById('verbose-main');
       if (verboseMain) {
-        verboseMain.innerHTML = '<div style="text-align: center; padding: 40px;"><h2 style="color: #e53935; font-weight: bold; margin-bottom: 20px;">⚠️ Test Results Not Available</h2><p style="color: #666; font-size: 16px; margin-bottom: 15px;">Unable to load <code>verbose.txt</code>. This usually means OPA tests haven\'t been run with verbose output.</p><div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;"><p style="color: #888; font-size: 14px; margin-bottom: 10px;"><strong>To fix this, try running:</strong></p><code style="background: #fff; padding: 8px 12px; border-radius: 4px; display: block; color: #333;">opa test policies/ tests/ test_data/ --verbose &gt; verbose.txt</code></div></div>';
+        verboseMain.innerHTML = '<div style="text-align: center; padding: 40px;"><h2 style="color: #e53935; font-weight: bold; margin-bottom: 20px;">⚠️ Test Results Not Available</h2><p style="color: var(--text-secondary); font-size: 16px; margin-bottom: 15px;">Unable to load <code>verbose.txt</code>. This usually means OPA tests haven\'t been run with verbose output.</p><div style="background: var(--sq-card); padding: 20px; border-radius: 8px; margin: 20px 0;"><p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 10px;"><strong>To fix this, try running:</strong></p><code style="background: var(--sq-card); padding: 8px 12px; border-radius: 4px; display: block; color: var(--text-primary);">opa test policies/ tests/ test_data/ --verbose &gt; verbose.txt</code></div></div>';
       }
     });
     
@@ -481,6 +481,45 @@
         }, 2000);
       });
     }
+
+    // --- Theme toggle function ---
+    function toggleTheme() {
+      var currentTheme = document.documentElement.getAttribute('data-theme');
+      var newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      var toggleBtn = document.getElementById('theme-toggle');
+      
+      document.documentElement.setAttribute('data-theme', newTheme);
+      localStorage.setItem('theme', newTheme);
+      
+      // Update button text and icon
+      if (newTheme === 'dark') {
+        toggleBtn.innerHTML = '☀️ Light';
+        createTooltip(toggleBtn, 'Switched to dark theme for better night viewing.');
+      } else {
+        toggleBtn.innerHTML = '🌙 Dark';
+        createTooltip(toggleBtn, 'Switched to light theme for better day viewing.');
+      }
+      
+      // Add animation
+      toggleBtn.classList.add('btn-animate');
+      setTimeout(function(){ 
+        toggleBtn.classList.remove('btn-animate'); 
+      }, 1200);
+    }
+
+    // --- Initialize theme on page load ---
+    document.addEventListener('DOMContentLoaded', function() {
+      var savedTheme = localStorage.getItem('theme') || 'light';
+      var toggleBtn = document.getElementById('theme-toggle');
+      
+      document.documentElement.setAttribute('data-theme', savedTheme);
+      
+      if (savedTheme === 'dark') {
+        toggleBtn.innerHTML = '☀️ Light';
+      } else {
+        toggleBtn.innerHTML = '🌙 Dark';
+      }
+    });
 
     // --- Highlight toggle and copy-to-clipboard logic for policy cards ---
     document.addEventListener('DOMContentLoaded', function () {
@@ -793,11 +832,7 @@
 
     });
 
-    // --- Animation styles for buttons ---
-    // Moved to static CSS section for better performance
-
-
-</script>
+  </script>
   
   <style>
     /* SonarQube-like theme variables */
@@ -816,15 +851,37 @@
       --uncovered-bg: #ffe6e6;
       --ignored-bg: #e6f0ff;
       --slow-bg: #ffeacc;
+      --text-primary: #222;
+      --text-secondary: #666;
+    }
+
+    /* Dark theme variables */
+    [data-theme="dark"] {
+      --sq-bg: #1a1a1a;
+      --sq-card: #2d2d2d;
+      --sq-border: #404040;
+      --sq-primary: #6ba3ff;
+      --sq-muted: #aaa;
+      --sq-header: #1e1e1e;
+      --sq-table-header: #333333;
+      --sq-success: #66bb6a;
+      --sq-fail: #ef5350;
+      --covered-bg: #1b4332;
+      --uncovered-bg: #4a1a1a;
+      --ignored-bg: #1a2332;
+      --slow-bg: #3d2a1a;
+      --text-primary: #e0e0e0;
+      --text-secondary: #b0b0b0;
     }
 
     /* Base layout */
     body {
       background: var(--sq-bg);
-      color: #222;
+      color: var(--text-primary);
       font-family: var(--sq-font);
       margin: 0;
       padding: 0;
+      transition: background-color 0.3s ease, color 0.3s ease;
     }
     header {
       background: var(--sq-header);
@@ -875,6 +932,36 @@
       box-shadow: 0 0 0 2px rgba(78, 145, 249, 0.2);
     }
 
+    /* Dark mode toggle */
+    .theme-toggle {
+      background: var(--sq-card);
+      border: 1px solid var(--sq-border);
+      border-radius: 4px;
+      padding: 6px 10px;
+      font-family: var(--sq-font);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--sq-header);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .theme-toggle:hover {
+      background: var(--sq-table-header);
+      border-color: var(--sq-primary);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+      transform: translateY(-1px);
+    }
+    .theme-toggle:active {
+      transform: translateY(0);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .theme-toggle:focus {
+      outline: none;
+      border-color: var(--sq-primary);
+      box-shadow: 0 0 0 2px rgba(78, 145, 249, 0.2);
+    }
+
     .header-logo {
       height: 40px;
       width: auto;
@@ -893,10 +980,12 @@
       box-shadow: 0 4px 16px rgba(0,0,0,0.06);
       padding: 14px 28px 40px 28px;
       border: 1px solid var(--sq-border);
+      transition: background-color 0.3s ease, border-color 0.3s ease;
     }
     h1, h2, h3 {
       color: var(--sq-header);
       margin-top: 0;
+      transition: color 0.3s ease;
     }
     ul, li {
       all: unset;
@@ -905,25 +994,28 @@
 
     /* Card components - consolidated */
     .card {
-      border: 1.5px solid #bbb;
+      border: 1.5px solid var(--sq-border);
       border-radius: 8px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.03);
-      background: #fff;
+      background: var(--sq-card);
+      transition: background-color 0.3s ease, border-color 0.3s ease;
     }
     .expandable {
       box-sizing: border-box;
-      border: 1px solid #bbb;
+      border: 1px solid var(--sq-border);
       border-radius: 4px;
-      background: #fafbfc;
+      background: var(--sq-table-header);
       padding: 10px;
+      transition: background-color 0.3s ease, border-color 0.3s ease;
     }
     .main-section {
-      border: 2px solid #bbb;
+      border: 2px solid var(--sq-border);
       border-radius: 8px;
       margin-bottom: 32px;
-      background: #fff;
+      background: var(--sq-card);
       box-shadow: 0 2px 8px rgba(0,0,0,0.03);
       padding: 18px 20px 24px 20px;
+      transition: background-color 0.3s ease, border-color 0.3s ease;
     }
 
     /* Toggle icons - consolidated */
@@ -975,7 +1067,7 @@
     }
     .time-slow {
       background: var(--slow-bg) !important;
-      color: #222 !important;
+      color: var(--text-primary) !important;
       font-weight: bold;
     }
 
@@ -983,7 +1075,7 @@
     .status-pass,
     .status-fail,
     .time-slow {
-      color: #222 !important;
+      color: var(--text-primary) !important;
     }
     .coverage-pass {
       color: var(--sq-success);
@@ -1036,11 +1128,12 @@
       word-break: break-word;
       width: 100%;
       box-sizing: border-box;
-      border: 1px solid #bbb;
+      border: 1px solid var(--sq-border);
       border-radius: 4px;
-      background: #fff;
+      background: var(--sq-card);
       padding: 10px 12px;
       margin-top: 10px;
+      transition: background-color 0.3s ease, border-color 0.3s ease;
     }
 
     /* Utilities */
@@ -1212,10 +1305,12 @@
 
     /* Code wrapper */
     .code-wrap {
-      background: #fafbfc;
+      background: var(--sq-table-header);
       border-radius: 6px;
       padding: 10px 12px;
       margin-top: 8px;
+      border: 1px solid var(--sq-border);
+      transition: background-color 0.3s ease, border-color 0.3s ease;
     }
 
     /* Code table styles */
@@ -1329,6 +1424,7 @@
       <button onclick="exportAsPDF()" class="export-btn">📄 Export Report PDF</button>
       <button onclick="exportAsJSON()" class="export-btn">📊 Export Summary JSON</button>
       <button onclick="copySummary()" class="export-btn">📋 Copy Summary Details</button>
+      <button onclick="toggleTheme()" class="theme-toggle" id="theme-toggle">🌙 Dark</button>
     </div>
     <div id="main">
     <div id="coverage-main" class="card main-section">
@@ -1505,60 +1601,61 @@
     </div>
     </div>
     <div id="footer" class="text-center">
-        <pre>    Welcome to Polly Rego Policy Coverage Report utility!
+        <pre>
+Welcome to Polly Rego Policy Coverage Report utility!
 
-            :::::::::::::::::::::::::::------::.+#+=::::::::::::::::::::::::::::::
-            ::::::::::::::::::::::::-+*********+=:*##*::::::::::::::::::::::::::::
-            ::::------------------=*#**************#*#=:-====-::::::::::::::::::::
-            :::++++++++++++++++++*#***************##*##*********=:::::::::::::::::
-            ::-*+++++++++==++++=*#*##***************************#*-.::::::::::::::
-            ::-*+++++++=--=+++++####***************#**************#-::::::::::::::
-            ::-*++=-++=:-=++++++*+#****************#***************#+-::::=+::::::
-            ::-*++=:---=++++++++++#**********#*====#*******************++**#=:::::
-            ::-*++++--++++++++++++##**********-=====*******##**************#+:::::
-            ::-*++++++++=-=+++++*#**#*******##====+++**+++=*#*************#+::::::
-            ::-*++==++=--=++++++#*#*+++++++++===========---+#*************#+::::::
-            ::-*++=:--:=+++++++*#*#***+=-===-====*******+===****************#-::::
-            ::-*+++=--=+++++++++%#+==+*#+======**+++++=+**=-=*#***************::::
-            ::-*++++++++=-=++++#**=+=-=*#*====#*++=---++=*#==-=*##***********#-:::
-            ::-*++==+++-:-++++*#*#+-...-*#==-**++:.::::=*=#+===+#************#::::
-            ::-*++=:==:-=+++++##*#*:-++-+#*++#+*::+*+-::*=*#***##***********#+::::
-            ::-*+++=::=+++++++#*=#*:*%%*+%***#*+:+%%%*::*=#*===#**********##=:::::
-            ::-*++++=++++==++++#**+=*%#*+++++##*:*%#%*:+++#==+##*********#=:::::::
-            ::-*+++++++=--=+++=*#+=+**==---===*#+=*#*==++#+===++##******#=..::::::
-            ::-*++=-==--=++++++*=+***======+=-=+#**++****======-*#*****#-.:-::::::
-            ::-*+++-::-++++++++*-==#=-=========-+#***++=========#******#==*#::::::
-            ::-*++++==+++++++++#+-=#=-==========#*=++-=========+#*********#+::::::
-            :::+++++++++++++++++#+=+*=-+***#####%+-*+-======-=*#****##****+:::::::
-            ::::--------====-----=+++*+*=*+%#**#*-=*========*##**##*##+--:::::::::
-            ::::::::::-*****+-:::::-=+*+=+*+***+=+*=====++*##*%#*##+==::::::::::::
-            :::::::::-#*******:::::::::-==+*++++*+===++#+:-=+++---::::::::::::::::
-            ::::::::.-#*****##+=::::::::..-#===========**-:..:::::::::::::=+**-:::
-            ::::::::=*****#*+++**:::::::-+#+-========++****+=:::::::::::=**++*+:::
-            :::::::=#+++++#+++*+#-.:::-+*#*+======++++**++++**=:::::::-**++++#-:::
-            :::::::-#*****#****+#+==+**+#*++++++++++++#+++++++*+:::::=*+++++#=::::
-            :::::::=#+++++*#*#+++++*+++**+++++++++++++#++++++++**-::=#+++++#++++::
-            :::::::=#++***#**##**++++++#++++++++++++++#++++++++++*--#+++++##*++#::
-            ::::::::-**+*##******#*+++**++++++++++++++*#*****+++++*#++++*#*+++#=::
-            ::::::::::-*#*********#++*#*++++++++++*****+++++++++++*#+++**++++*=:::
-            :::::::::::+**********#*+==#++++++++***++++++++++++++++#*+**+++**-::::
-            :::::::::::=#***#####**=---**+++++***+***++++++++++++++**++++**=::::::
-            :::::::::::-+*#*+++==------=***++**+**++***++++++++++***+++**+-::--:::
-            ===========+++============-:::-+*#+#*+*#*+++***++++*##*++**+==========
-            =========++=-==++=-----:--=+-::.=#**+*#+++*#*****+++++**+=============
-            ======+++-::=+-+++=++++=====+:-==-=**#****++==---::::-+#+++++++++=====
-            ====+*+-:::::+=:::------==+=+==-::::--==-::::::::::-==-+*+============
-            ====#========-====-------=+*=-:::::::::::::::::::-==-=-=#**+==========
-            ===*#===----======-------==-:::::::::::::::::::-==--=-=+*#*+==========
-            ==+###****++==---==-:.:==-:::::::::::::::::::-==-=--=**#*+============
-            ====++****###**++==++=*+=======---:::::::::-==-==-=**#*+==============
-            ==========+++**#####%%*+===---=======-:::-==-=--=**#*+================
-            ================+**######***++==----====+=-==-=*##*+==================
-            ==================+++++++***###**++==--=+--==*##*+====================
-            ===========================+++***###**+=+==*##*+======================
-            =================================++***###*##*+========================
-            ======================================++***+==========================
-            Created by @willemevenwel on GitHub
+:::::::::::::::::::::::::::------::.+#+=::::::::::::::::::::::::::::::
+::::::::::::::::::::::::-+*********+=:*##*::::::::::::::::::::::::::::
+::::------------------=*#**************#*#=:-====-::::::::::::::::::::
+:::++++++++++++++++++*#***************##*##*********=:::::::::::::::::
+::-*+++++++++==++++=*#*##***************************#*-.::::::::::::::
+::-*+++++++=--=+++++####***************#**************#-::::::::::::::
+::-*++=-++=:-=++++++*+#****************#***************#+-::::=+::::::
+::-*++=:---=++++++++++#**********#*====#*******************++**#=:::::
+::-*++++--++++++++++++##**********-=====*******##**************#+:::::
+::-*++++++++=-=+++++*#**#*******##====+++**+++=*#*************#+::::::
+::-*++==++=--=++++++#*#*+++++++++===========---+#*************#+::::::
+::-*++=:--:=+++++++*#*#***+=-===-====*******+===****************#-::::
+::-*+++=--=+++++++++%#+==+*#+======**+++++=+**=-=*#***************::::
+::-*++++++++=-=++++#**=+=-=*#*====#*++=---++=*#==-=*##***********#-:::
+::-*++==+++-:-++++*#*#+-...-*#==-**++:.::::=*=#+===+#************#::::
+::-*++=:==:-=+++++##*#*:-++-+#*++#+*::+*+-::*=*#***##***********#+::::
+::-*+++=::=+++++++#*=#*:*%%*+%***#*+:+%%%*::*=#*===#**********##=:::::
+::-*++++=++++==++++#**+=*%#*+++++##*:*%#%*:+++#==+##*********#=:::::::
+::-*+++++++=--=+++=*#+=+**==---===*#+=*#*==++#+===++##******#=..::::::
+::-*++=-==--=++++++*=+***======+=-=+#**++****======-*#*****#-.:-::::::
+::-*+++-::-++++++++*-==#=-=========-+#***++=========#******#==*#::::::
+::-*++++==+++++++++#+-=#=-==========#*=++-=========+#*********#+::::::
+:::+++++++++++++++++#+=+*=-+***#####%+-*+-======-=*#****##****+:::::::
+::::--------====-----=+++*+*=*+%#**#*-=*========*##**##*##+--:::::::::
+::::::::::-*****+-:::::-=+*+=+*+***+=+*=====++*##*%#*##+==::::::::::::
+:::::::::-#*******:::::::::-==+*++++*+===++#+:-=+++---::::::::::::::::
+::::::::.-#*****##+=::::::::..-#===========**-:..:::::::::::::=+**-:::
+::::::::=*****#*+++**:::::::-+#+-========++****+=:::::::::::=**++*+:::
+:::::::=#+++++#+++*+#-.:::-+*#*+======++++**++++**=:::::::-**++++#-:::
+:::::::-#*****#****+#+==+**+#*++++++++++++#+++++++*+:::::=*+++++#=::::
+:::::::=#+++++*#*#+++++*+++**+++++++++++++#++++++++**-::=#+++++#++++::
+:::::::=#++***#**##**++++++#++++++++++++++#++++++++++*--#+++++##*++#::
+::::::::-**+*##******#*+++**++++++++++++++*#*****+++++*#++++*#*+++#=::
+::::::::::-*#*********#++*#*++++++++++*****+++++++++++*#+++**++++*=:::
+:::::::::::+**********#*+==#++++++++***++++++++++++++++#*+**+++**-::::
+:::::::::::=#***#####**=---**+++++***+***++++++++++++++**++++**=::::::
+:::::::::::-+*#*+++==------=***++**+**++***++++++++++***+++**+-::--:::
+===========+++============-:::-+*#+#*+*#*+++***++++*##*++**+==========
+=========++=-==++=-----:--=+-::.=#**+*#+++*#*****+++++**+=============
+======+++-::=+-+++=++++=====+:-==-=**#****++==---::::-+#+++++++++=====
+====+*+-:::::+=:::------==+=+==-::::--==-::::::::::-==-+*+============
+====#========-====-------=+*=-:::::::::::::::::::-==-=-=#**+==========
+===*#===----======-------==-:::::::::::::::::::-==--=-=+*#*+==========
+==+###****++==---==-:.:==-:::::::::::::::::::-==-=--=**#*+============
+====++****###**++==++=*+=======---:::::::::-==-==-=**#*+==============
+==========+++**#####%%*+===---=======-:::-==-=--=**#*+================
+================+**######***++==----====+=-==-=*##*+==================
+==================+++++++***###**++==--=+--==*##*+====================
+===========================+++***###**+=+==*##*+======================
+=================================++***###*##*+========================
+======================================++***+==========================
+Created by @willemevenwel on GitHub
         </pre>
     </div>
 
