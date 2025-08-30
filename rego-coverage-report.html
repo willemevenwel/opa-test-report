@@ -61,7 +61,14 @@
         var coveredPerc = li.querySelector('.covered-percentage');
         if (coveredPerc) coveredPerc.textContent = (policy.coverage || 0) + '%';
         var uncoveredLines = li.querySelector('.uncovered-lines');
-        if (uncoveredLines) uncoveredLines.innerHTML = '<strong>Uncovered lines:</strong> ' + (policy.not_covered_lines || 0);
+        if (uncoveredLines) {
+          var uncoveredCount = policy.not_covered_lines || 0;
+          if (uncoveredCount > 0) {
+            uncoveredLines.innerHTML = '<strong>Uncovered lines:</strong> <span class="has-uncovered">' + uncoveredCount + '</span>';
+          } else {
+            uncoveredLines.innerHTML = '<strong>Uncovered lines:</strong> ' + uncoveredCount;
+          }
+        }
         var coveredLines = li.querySelector('.covered-lines');
         if (coveredLines) coveredLines.innerHTML = '<strong>Covered lines:</strong> ' + (policy.covered_lines || 0);
         var totalLines = li.querySelector('.total-lines');
@@ -201,6 +208,57 @@
     // --- Highlight toggle and copy-to-clipboard logic for policy cards ---
     document.addEventListener('DOMContentLoaded', function () {
       
+      // Tooltip functionality
+      function createTooltip(element, message) {
+        // Remove any existing tooltip
+        var existingTooltip = document.querySelector('.tooltip');
+        if (existingTooltip) {
+          existingTooltip.remove();
+        }
+
+        var tooltip = document.createElement('div');
+        tooltip.className = 'tooltip';
+        tooltip.textContent = message;
+        document.body.appendChild(tooltip);
+
+        // Position tooltip above the element
+        var rect = element.getBoundingClientRect();
+        var scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        var scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+        
+        // Get tooltip dimensions after adding to DOM
+        var tooltipRect = tooltip.getBoundingClientRect();
+        
+        // Calculate position with scroll offset
+        var left = rect.left + scrollLeft + rect.width / 2 - tooltipRect.width / 2;
+        var top = rect.top + scrollTop - tooltipRect.height - 10;
+        
+        // Ensure tooltip stays within viewport
+        var viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+        if (left < 5) left = 5;
+        if (left + tooltipRect.width > viewportWidth - 5) left = viewportWidth - tooltipRect.width - 5;
+        
+        tooltip.style.left = left + 'px';
+        tooltip.style.top = top + 'px';
+
+        // Show tooltip with animation
+        setTimeout(function() {
+          tooltip.classList.add('show');
+        }, 10);
+
+        // Hide tooltip after 2 seconds
+        setTimeout(function() {
+          if (tooltip && tooltip.parentNode) {
+            tooltip.classList.remove('show');
+            setTimeout(function() {
+              if (tooltip && tooltip.parentNode) {
+                tooltip.remove();
+              }
+            }, 300);
+          }
+        }, 2000);
+      }
+
       // Function to update toggle icon based on details state
       function updateToggleIcon(detailsElement) {
         var icon = detailsElement.querySelector('.toggle-icon');
@@ -246,14 +304,18 @@
           var card = eyeBtn.closest('.card');
           var codeWrap = card.querySelector('.code-wrap');
           if (codeWrap) {
+            var isHiding = !codeWrap.classList.contains('highlight-off');
             codeWrap.classList.toggle('highlight-off');
+            
+            // Show appropriate tooltip
+            var tooltipMessage = isHiding ? "Highlighting of lines hidden." : "Highlighting of lines shown.";
+            createTooltip(eyeBtn, tooltipMessage);
+            
             // Animate the eye icon (swap SVG for open/closed)
             var svg = eyeBtn.querySelector('svg');
             if (codeWrap.classList.contains('highlight-off')) {
-              svg.innerHTML = '<title>Show highlights</title><path d="M2 2L18 18" stroke="#888" stroke-width="1.5"/><path d="M10 4C5.45455 4 2.27273 8.18182 2.27273 10C2.27273 11.8182 5.45455 16 10 16C14.5455 16 17.7273 11.8182 17.7273 10C17.7273 8.18182 14.5455 4 10 4Z" stroke="#888" stroke-width="1.5"/><circle cx="10" cy="10" r="3" stroke="#888" stroke-width="1.5"/>';
               eyeBtn.classList.add('eye-closed');
             } else {
-              svg.innerHTML = '<title>Toggle coverage highlight on and off</title><path d="M10 4C5.45455 4 2.27273 8.18182 2.27273 10C2.27273 11.8182 5.45455 16 10 16C14.5455 16 17.7273 11.8182 17.7273 10C17.7273 8.18182 14.5455 4 10 4Z" stroke="#888" stroke-width="1.5"/><circle cx="10" cy="10" r="3" stroke="#888" stroke-width="1.5"/>';
               eyeBtn.classList.remove('eye-closed');
             }
             eyeBtn.classList.add('btn-animate');
@@ -267,6 +329,36 @@
           e.stopPropagation();
           var copyBtn = e.target.closest('.copy-btn');
           
+          // Handle expandable section copy (coverage-raw and verbose-raw)
+          var expandable = copyBtn.closest('details.expandable');
+          if (expandable) {
+            var pre = expandable.querySelector('pre');
+            if (pre) {
+              var text = pre.innerText || pre.textContent;
+              if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(function() {
+                  // Determine which type of raw content this is
+                  var coverageRaw = copyBtn.closest('#coverage-raw');
+                  var verboseRaw = copyBtn.closest('#verbose-raw');
+                  var tooltipMessage = 'Raw content copied to clipboard.';
+                  
+                  if (coverageRaw) {
+                    tooltipMessage = 'Raw coverage report copied to clipboard.';
+                  } else if (verboseRaw) {
+                    tooltipMessage = 'Raw verbose report copied to clipboard.';
+                  }
+                  
+                  createTooltip(copyBtn, tooltipMessage);
+                  copyBtn.classList.add('btn-animate');
+                  setTimeout(function(){ 
+                    copyBtn.classList.remove('btn-animate'); 
+                  }, 1200);
+                });
+              }
+            }
+            return; // Add this return to prevent executing the policy card copy logic
+          }
+
           // Handle policy card copy
           var card = copyBtn.closest('.card');
           if (card) {
@@ -278,10 +370,30 @@
               var text = lines.join('\n');
               if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(text).then(function() {
+                  // Get policy name and path for tooltip
+                  var policyTitle = card.querySelector('.policy-title');
+                  var policyName = '';
+                  var policyPath = '';
+                  
+                  if (policyTitle) {
+                    var titleText = policyTitle.textContent || policyTitle.innerText;
+                    var pathSpan = policyTitle.querySelector('.policy-path');
+                    if (pathSpan) {
+                      var pathText = pathSpan.textContent || pathSpan.innerText;
+                      policyPath = pathText.replace(/[()]/g, ''); // Remove parentheses
+                      policyName = titleText.replace(pathText, '').trim();
+                    } else {
+                      policyName = titleText;
+                    }
+                  }
+                  
+                  var tooltipMessage = policyPath ? 
+                    policyPath.charAt(0).toUpperCase() + policyPath.slice(1) + ' content copied to clipboard.' : 
+                    policyName.charAt(0).toUpperCase() + policyName.slice(1) + ' content copied to clipboard.';
+                  
+                  createTooltip(copyBtn, tooltipMessage);
                   copyBtn.classList.add('btn-animate');
-                  copyBtn.title = 'Copied!';
                   setTimeout(function(){ 
-                    copyBtn.title = 'Copy code'; 
                     copyBtn.classList.remove('btn-animate'); 
                   }, 1200);
                 });
@@ -290,24 +402,6 @@
             }
           }
           
-          // Handle expandable section copy
-          var expandable = copyBtn.closest('details.expandable');
-          if (expandable) {
-            var pre = expandable.querySelector('pre');
-            if (pre) {
-              var text = pre.innerText || pre.textContent;
-              if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(text).then(function() {
-                  copyBtn.classList.add('btn-animate');
-                  copyBtn.title = 'Copied!';
-                  setTimeout(function(){ 
-                    copyBtn.title = 'Copy content'; 
-                    copyBtn.classList.remove('btn-animate'); 
-                  }, 1200);
-                });
-              }
-            }
-          }
         }
       });
 
@@ -614,6 +708,12 @@
       margin-bottom: 18px;
     }
 
+    /* Uncovered lines styling */
+    .has-uncovered {
+      color: var(--sq-fail) !important;
+      font-weight: bold !important;
+    }
+
     /* Summary styles */
     .policy-summary {
       list-style: none;
@@ -679,6 +779,37 @@
 
     /* Legend spacing */
     #verbose-legend { margin: 10px 0 24px 0; }
+
+    /* Tooltip styles */
+    .tooltip {
+      position: absolute;
+      background: rgba(0, 0, 0, 0.9);
+      color: white;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 1000;
+      opacity: 0;
+      transform: translateY(-5px);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    .tooltip.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .tooltip::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 5px solid transparent;
+      border-top-color: rgba(0, 0, 0, 0.9);
+    }
 
 </style>
 </head>
@@ -802,57 +933,57 @@
             <h2 class="text-center">Verbose Details</h2>
             <div id="verbose-details">
 
-        <div class="legend" id="verbose-legend">
-          <span><span class="legend-swatch status-success"></span>PASS</span>
-          <span><span class="legend-swatch status-fail"></span>FAIL</span>
-          <span><span class="legend-swatch time-slow"></span>Time &gt; 100ms</span>
-        </div>
+            <div class="legend" id="verbose-legend">
+              <span><span class="legend-swatch status-success"></span>PASS</span>
+              <span><span class="legend-swatch status-fail"></span>FAIL</span>
+              <span><span class="legend-swatch time-slow"></span>Time &gt; 100ms</span>
+            </div>
 
-                <table id="table-verbose" class="summary-table">
-                    <thead>
-                        <tr>
-                            <th>Test</th>
-                            <th>Status</th>
-                            <th>Time</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- Rows will be dynamically inserted here -->
-                        <!-- Example static row for illustration: -->
-                        <tr>
-                            <td>order_service/invoice/allow</td>
-                            <td class="status-pass">PASS</td>
-                            <td>12</td>
-                        </tr>
-                        <tr>
-                            <td>order_service/invoice/deny</td>
-                            <td class="status-fail">FAIL</td>
-                            <td>8</td>
-                        </tr>
-                        <tr>
-                            <td>order_service/invoice/slow</td>
-                            <td class="status-pass">PASS</td>
-                            <td class="time-slow">120</td>
-                        </tr>
-                    </tbody>
-                </table>            
-            </div>
-            <div id="verbose-raw" class="pt-15">
-              <details class="expandable">
-                <summary class="expandable-header">
-                  <span class="toggle-icon mr-6">
-                    <svg viewBox="0 0 16 16" width="16" height="16" class="svg-block"><polyline points="6,4 10,8 6,12" fill="none" stroke="#888" stroke-width="2"/></svg>
-                  </span>
-                  <span class="flex-1">Expand for more verbose info</span>
-                  <button class="copy-btn copy-btn-right icon-btn" title="Copy content" aria-label="Copy content">
-                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>
-                  </button>
-                </summary>
-                <div class="expandable-content">
-                  <pre></pre>
-                </div>
-              </details>
-            </div>
+            <table id="table-verbose" class="summary-table">
+                <thead>
+                    <tr>
+                        <th>Test</th>
+                        <th>Status</th>
+                        <th>Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Rows will be dynamically inserted here -->
+                    <!-- Example static row for illustration: -->
+                    <tr>
+                        <td>order_service/invoice/allow</td>
+                        <td class="status-pass">PASS</td>
+                        <td>12</td>
+                    </tr>
+                    <tr>
+                        <td>order_service/invoice/deny</td>
+                        <td class="status-fail">FAIL</td>
+                        <td>8</td>
+                    </tr>
+                    <tr>
+                        <td>order_service/invoice/slow</td>
+                        <td class="status-pass">PASS</td>
+                        <td class="time-slow">120</td>
+                    </tr>
+                </tbody>
+            </table>            
+          </div>
+          <div id="verbose-raw" class="pt-15">
+            <details class="expandable">
+              <summary class="expandable-header">
+                <span class="toggle-icon mr-6">
+                  <svg viewBox="0 0 16 16" width="16" height="16" class="svg-block"><polyline points="6,4 10,8 6,12" fill="none" stroke="#888" stroke-width="2"/></svg>
+                </span>
+                <span class="flex-1">Expand for more verbose info</span>
+                <button class="copy-btn copy-btn-right icon-btn" title="Copy content" aria-label="Copy content">
+                  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><title>Copy to clipboard</title><rect x="5" y="5" width="10" height="12" rx="2" stroke="#888" stroke-width="1.5" fill="#fff"/><rect x="8" y="2" width="7" height="12" rx="2" stroke="#bbb" stroke-width="1.2" fill="#f7f7f7"/></svg>
+                </button>
+              </summary>
+              <div class="expandable-content">
+                <pre></pre>
+              </div>
+            </details>
+          </div>
         </div>
     </div>
 
