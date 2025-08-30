@@ -40,6 +40,14 @@ function escapeHTML(str) {
     const page = await browser.newPage();
     console.log("✅ - Launched");
 
+    // Listen for console events from the page BEFORE loading it
+    page.on('console', msg => {
+      // Log each argument from the console message
+      for (let i = 0; i < msg.args().length; ++i) {
+        msg.args()[i].jsonValue().then(val => console.log("🦜⏳ -", val));
+      }
+    });
+
     // If the argument looks like a URL, use it directly; else, treat as file
     const isUrl = /^https?:\/\//.test(targetUrlOrFile);
     const target = isUrl ? targetUrlOrFile : `file://${path.resolve(targetUrlOrFile)}`;
@@ -48,11 +56,11 @@ function escapeHTML(str) {
     await page.goto(target, { waitUntil: 'networkidle0' });
     console.log("✅ - Loaded");
 
-
     // Wait for the main viewer to be fully rendered (wait for at least one .code-table to exist)
     await page.waitForSelector('.code-table', {timeout: 5000});
+
     // Optionally, wait a bit more for all dynamic scripts to finish
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
     const staticHTML = await page.evaluate(() => {
       console.log("ℹ️  - Page loaded. Cloning it for manipulation.");
@@ -82,7 +90,7 @@ function escapeHTML(str) {
     console.log(`ℹ️  - Static report saved to: ${outputHtmlPath}`);
 
   } catch (err) {
-    console.error('❌ - Error rendering HTML:', err);
+    console.error('❌☠️❌ - Error rendering HTML:', err);
     process.exit(2);
   }
 })();

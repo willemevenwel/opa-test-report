@@ -9,13 +9,27 @@
 
   // --- Dynamic coverage report generation ---
   document.addEventListener('DOMContentLoaded', function () {
+    console.log('DOM loaded, starting report generation...');
+    
     // --- Coverage summary and policy cards ---
+    console.log('Fetching coverage data from /coverage.json...');
     fetch('/coverage.json')
-    .then(function(response) { return response.json(); })
+    .then(function(response) { 
+      console.log('Coverage data response status: ' + response.status);
+      if (!response.ok) {
+        throw new Error('Failed to fetch coverage.json (status: ' + response.status + ')');
+      }
+      return response.json(); 
+    })
     .then(function(data) {
-      document.getElementById('totalPolicies').textContent = data.totalPolicies || Object.keys(data.files || {}).length || 0;
+      console.log('Coverage data loaded.');
+      
+      var totalPolicies = data.totalPolicies || Object.keys(data.files || {}).length || 0;
+      console.log('Total policies found: ' + totalPolicies + '.');
+      document.getElementById('totalPolicies').textContent = totalPolicies;
       
       var totalCoverage = data.totalCoveragePercentage || data.coverage || '0';
+      console.log('Total coverage percentage: ' + totalCoverage + '%.');
       document.getElementById('totalCoveragePercentage').textContent = totalCoverage + '%';
       
       // Set total pie chart coverage angle
@@ -23,16 +37,22 @@
       if (totalPieChart) {
         var totalCoverageNum = parseFloat(totalCoverage);
         var angle = (totalCoverageNum / 100) * 360;
+        console.log('Setting total pie chart angle: ' + angle + 'deg.');
         totalPieChart.style.setProperty('--coverage-angle', angle + 'deg');
       }
       
-      document.getElementById('totalCoveredLines').textContent = data.totalCoveredLines || data.covered_lines || 0;
+      var totalCoveredLines = data.totalCoveredLines || data.covered_lines || 0;
+      console.log('Total covered lines: ' + totalCoveredLines + '.');
+      document.getElementById('totalCoveredLines').textContent = totalCoveredLines;
       
       var totalNotCoveredLines = data.totalNotCoveredLines || data.not_covered_lines || 0;
+      console.log('Total not covered lines: ' + totalNotCoveredLines + '.');
       var notCoveredElement = document.getElementById('totalNotCoveredLines');
       if (totalNotCoveredLines > 0) {
+        console.log('Found uncovered lines, styling with warning.');
         notCoveredElement.innerHTML = '<span class="has-uncovered">' + totalNotCoveredLines + '</span>';
       } else {
+        console.log('All lines covered!');
         notCoveredElement.textContent = totalNotCoveredLines;
       }
 
@@ -62,7 +82,11 @@
         return statusMap;
       }
 
-      Object.entries(data.files || {}).forEach(function([path, policy], idx) {
+      var policyFiles = Object.entries(data.files || {});
+      console.log('Processing ' + policyFiles.length + ' policy files...');
+      
+      policyFiles.forEach(function([path, policy], idx) {
+        console.log('Processing policy ' + (idx + 1) + '/' + policyFiles.length + ': ' + path + '.');
         policy.path = path;
         var li = template.cloneNode(true);
         if (idx > 0) {
@@ -79,6 +103,7 @@
         var coveredPerc = li.querySelector('.covered-percentage');
         if (coveredPerc) {
           var coverage = policy.coverage || 0;
+          console.log('Policy ' + name + ' coverage: ' + coverage + '%.');
           coveredPerc.textContent = coverage + '%';
         }
         
@@ -93,8 +118,10 @@
         if (uncoveredLines) {
           var uncoveredCount = policy.not_covered_lines || 0;
           if (uncoveredCount > 0) {
+            console.log('Policy ' + name + ' has ' + uncoveredCount + ' uncovered lines.');
             uncoveredLines.innerHTML = '<strong>Uncovered lines:</strong> <span class="has-uncovered">' + uncoveredCount + '</span>';
           } else {
+            console.log('Policy ' + name + ' is fully covered!');
             uncoveredLines.innerHTML = '<strong>Uncovered lines:</strong> ' + uncoveredCount;
           }
         }
@@ -106,11 +133,25 @@
         var codeTable = li.querySelector('.code-table tbody');
         if (codeTable) {
           codeTable.innerHTML = '';
+          console.log('Fetching source code for: ' + path + '.');
           fetch('/' + path)
-            .then(function(resp) { return resp.ok ? resp.text() : ''; })
+            .then(function(resp) { 
+              if (!resp.ok) {
+                console.warn('Failed to fetch source for ' + path + ' - status: ' + resp.status + '.');
+                return '';
+              }
+              console.log('Source code loaded for: ' + path + '.');
+              return resp.text(); 
+            })
             .then(function(text) {
               var lines = text.split('\n');
               var statusMap = getLineStatusMap(policy);
+              console.log('Processing ' + lines.length + ' lines for ' + path + '.');
+              
+              var coveredCount = 0;
+              var missedCount = 0;
+              var ignoredCount = 0;
+              
               lines.forEach(function(line, idx) {
                 var tr = document.createElement('tr');
                 var lineNumber = idx + 1;
@@ -126,10 +167,13 @@
                   statusMap[lineNumber] === 'ignored';
                 if (isIgnored) {
                   tr.className = 'ignored';
+                  ignoredCount++;
                 } else if (statusMap[lineNumber] === 'covered') {
                   tr.className = 'covered';
+                  coveredCount++;
                 } else if (statusMap[lineNumber] === 'missed') {
                   tr.className = 'missed';
+                  missedCount++;
                 }
                 var tdLn = document.createElement('td');
                 tdLn.className = 'ln';
@@ -141,11 +185,15 @@
                 tr.appendChild(tdCode);
                 codeTable.appendChild(tr);
               });
+              
+              console.log('Line coverage for ' + path + ': covered=' + coveredCount + ', missed=' + missedCount + ', ignored=' + ignoredCount + ', total=' + lines.length + '.');
             });
         }
         ul.appendChild(li);
       });
 
+      console.log('Policy cards generation completed.');
+      
       // Initialize toggle icons for dynamically created cards
       document.querySelectorAll('.card').forEach(function(card) {
         var summary = card.querySelector('summary');
@@ -161,16 +209,31 @@
 
       var rawPre = document.querySelector('#coverage-raw pre');
       if (rawPre) {
+        console.log('Setting raw coverage data.');
         rawPre.textContent = JSON.stringify(data, null, 2);
       }
     })
     .catch(function(err) {
-      console.error('Failed to load coverage.json', err);
+      console.error('❌☠️❌ - Failed to load coverage.json: ' + err + '.');
+      
+      // Hide the coverage main content and show error message
+      var coverageMain = document.getElementById('coverage-main');
+      if (coverageMain) {
+        coverageMain.innerHTML = '<h1 class="text-center" style="color: #e53935; font-weight: bold;">Unable to retrieve the contents of coverage.json.</h1>';
+      }
     });
 
   // --- Verbose table and raw section ---
+  console.log('Fetching verbose test data from /verbose.txt...');
   fetch('/verbose.txt')
-    .then(function(response) { if (!response.ok) return null; return response.text(); })
+    .then(function(response) { 
+      if (!response.ok) {
+        console.log('No verbose.txt found (status: ' + response.status + '), skipping verbose table generation.');
+        throw new Error('Failed to fetch verbose.txt (status: ' + response.status + ')');
+      }
+      console.log('Verbose data loaded successfully.');
+      return response.text(); 
+    })
     .then(function(text) {
       if (!text) return;
       var lines = text.split('\n');
@@ -178,10 +241,14 @@
       var currentFile = null;
       var fileHeaderRe = /^([\w\/-]+\.rego):$/;
       var testLineRe = /^([^\s:]+):\s+(PASS|FAIL)\s+\(([^)]+)\)$/;
+      
+      console.log('Parsing ' + lines.length + ' lines from verbose.txt.');
+      
       lines.forEach(function(line) {
         var fileMatch = line.match(fileHeaderRe);
         if (fileMatch) {
           currentFile = fileMatch[1];
+          console.log('Found test file section: ' + currentFile + '.');
           return;
         }
         var testMatch = line.match(testLineRe);
@@ -194,22 +261,43 @@
           });
         }
       });
-      if (!tableData.length) return;
+      
+      console.log('Parsed ' + tableData.length + ' test results.');
+      
+      if (!tableData.length) {
+        console.log('No test data found in verbose.txt.');
+        return;
+      }
+      
       var table = document.getElementById('table-verbose');
       if (!table) return;
       var tbody = document.createElement('tbody');
       
       // Group tests by file
       var groupedData = {};
+      var passCount = 0;
+      var failCount = 0;
+      var slowCount = 0;
+      
       tableData.forEach(function(row) {
         if (!groupedData[row.file]) {
           groupedData[row.file] = [];
         }
         groupedData[row.file].push(row);
+        
+        if (row.result === 'PASS') passCount++;
+        else if (row.result === 'FAIL') failCount++;
+        
+        var msMatch = row.time.match(/^([0-9]+)\s*ms$/i);
+        if (msMatch && parseInt(msMatch[1], 10) > 100) slowCount++;
       });
+      
+      console.log('Test results summary: total=' + tableData.length + ', pass=' + passCount + ', fail=' + failCount + ', slow=' + slowCount + ', files=' + Object.keys(groupedData).length + '.');
       
       // Create rows with file headers
       Object.keys(groupedData).forEach(function(file) {
+        console.log('Generating test table for file: ' + file + ' with ' + groupedData[file].length + ' tests.');
+        
         // Create file header row
         var fileHeaderTr = document.createElement('tr');
         fileHeaderTr.className = 'file-header';
@@ -251,12 +339,28 @@
       var oldTbody = table.querySelector('tbody');
       if (oldTbody) table.removeChild(oldTbody);
       table.appendChild(tbody);
+      
+      console.log('Verbose test table generation completed.');
 
       // Fill the verbose raw <pre>
       var verbosePre = document.querySelector('#verbose-raw pre');
-      if (verbosePre) verbosePre.textContent = text;
+      if (verbosePre) {
+        console.log('Setting raw verbose data.');
+        verbosePre.textContent = text;
+      }
+    })
+    .catch(function(err) {
+      console.error('❌☠️❌ - Error loading verbose.txt: ' + err + '.');
+      
+      // Hide the verbose main content and show error message
+      var verboseMain = document.getElementById('verbose-main');
+      if (verboseMain) {
+        verboseMain.innerHTML = '<h2 class="text-center" style="color: #e53935; font-weight: bold;">Unable to retrieve the contents of verbose.txt.</h2>';
+      }
     });
-});
+    
+  console.log('Report generation initialization complete.');
+  });
   </script>
   
   <script id="main-js">
