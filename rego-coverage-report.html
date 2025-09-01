@@ -313,8 +313,25 @@
         if (row.result === 'PASS') passCount++;
         else if (row.result === 'FAIL') failCount++;
         
-        var msMatch = row.time.match(/^([0-9]+)\s*ms$/i);
-        if (msMatch && parseInt(msMatch[1], 10) > 100) slowCount++;
+        // Parse time and convert to milliseconds for consistent comparison
+        function parseTimeToMs(timeStr) {
+          // Handle different time formats: µs, ms, s
+          var timeMatch = timeStr.match(/^([0-9]+(?:\.[0-9]+)?)\s*(µs|ms|s)$/i);
+          if (!timeMatch) {
+            console.log('Could not parse time format: ' + timeStr);
+            return 0;
+          }
+          var value = parseFloat(timeMatch[1]);
+          var unit = timeMatch[2].toLowerCase();
+          
+          if (unit === 'µs') return value / 1000; // Convert µs to ms
+          if (unit === 'ms') return value;       // Already in ms
+          if (unit === 's') return value * 1000; // Convert s to ms
+          return 0;
+        }
+        
+        var timeInMs = parseTimeToMs(row.time);
+        if (timeInMs > 100) slowCount++;
       });
       
       console.log('Test results summary: total=' + tableData.length + ', pass=' + passCount + ', fail=' + failCount + ', slow=' + slowCount + ', files=' + Object.keys(groupedData).length + '.');
@@ -343,8 +360,26 @@
           if (row.result === 'PASS') statusClass = 'status-pass';
           else if (row.result === 'FAIL') statusClass = 'status-fail';
           var timeClass = '';
-          var msMatch = row.time.match(/^([0-9]+)\s*ms$/i);
-          if (msMatch && parseInt(msMatch[1], 10) > 100) timeClass = 'time-slow';
+          
+          // Parse time and convert to milliseconds for consistent comparison
+          function parseTimeToMs(timeStr) {
+            // Handle different time formats: µs, ms, s
+            var timeMatch = timeStr.match(/^([0-9]+(?:\.[0-9]+)?)\s*(µs|ms|s)$/i);
+            if (!timeMatch) {
+              console.log('Could not parse time format for styling: ' + timeStr);
+              return 0;
+            }
+            var value = parseFloat(timeMatch[1]);
+            var unit = timeMatch[2].toLowerCase();
+            
+            if (unit === 'µs') return value / 1000; // Convert µs to ms
+            if (unit === 'ms') return value;       // Already in ms
+            if (unit === 's') return value * 1000; // Convert s to ms
+            return 0;
+          }
+          
+          var timeInMs = parseTimeToMs(row.time);
+          if (timeInMs > 100) timeClass = 'time-slow';
           var tdTest = document.createElement('td');
           tdTest.textContent = '  ' + row.test; // Add indentation
           tdTest.style.paddingLeft = '24px';
