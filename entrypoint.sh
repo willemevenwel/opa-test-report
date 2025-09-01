@@ -69,12 +69,18 @@ if [ "$1" = "bash" ]; then
 else
 
   echo "ℹ️  - Executing policy unit test report"
-  opa test policies/ tests/ test_data/ --verbose > verbose.txt
-  echo "✅ - Unit test report data generated."
+  if opa test policies/ tests/ test_data/ --verbose > verbose.txt; then
+    echo "✅ - Unit test report data generated."
+  else
+    echo "⚠️  - Unit test report generation failed, but continuing..."
+  fi
 
   echo "ℹ️  - Executing policy coverage report"
-  opa test policies/ tests/ test_data/ --coverage > coverage.json
-  echo "✅ - Coverage report data generated."
+  if opa test policies/ tests/ test_data/ --coverage > coverage.json; then
+    echo "✅ - Coverage report data generated."
+  else
+    echo "⚠️  - Coverage report generation failed, but continuing..."
+  fi
 
   if [ "$1" = "web" ]; then
 
