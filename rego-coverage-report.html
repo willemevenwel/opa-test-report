@@ -713,7 +713,8 @@
           if (expandable) {
             var pre = expandable.querySelector('pre');
             if (pre) {
-              var text = pre.innerText || pre.textContent;
+              // Use textContent to preserve exact whitespace formatting
+              var text = pre.textContent;
               if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(text).then(function() {
                   // Determine which type of raw content this is
@@ -744,7 +745,8 @@
             var codeTable = card.querySelector('.code-table');
             if (codeTable) {
               var lines = Array.from(codeTable.querySelectorAll('td.code')).map(function(td) {
-                return td.innerText || td.textContent;
+                // Use textContent to preserve exact whitespace formatting
+                return td.textContent;
               });
               var text = lines.join('\n');
               if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -1159,7 +1161,7 @@
 
     /* Expandable content */
     .expandable-content pre {
-      white-space: pre-wrap;
+      white-space: pre;
       word-break: break-word;
       width: 100%;
       box-sizing: border-box;
@@ -1169,6 +1171,10 @@
       padding: 10px 12px;
       margin-top: 10px;
       transition: background-color 0.3s ease, border-color 0.3s ease;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.45;
+      overflow-x: auto;
     }
 
     /* Utilities */
@@ -1355,6 +1361,12 @@
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Courier New', monospace;
       font-size: 13px;
       line-height: 1.45;
+    }
+
+    /* Code cell whitespace preservation */
+    .code-table td.code {
+      white-space: pre;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Courier New', monospace;
     }
 
     /* Line number links */
