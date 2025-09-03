@@ -236,6 +236,14 @@
       if (rawPre) {
         console.log('Setting raw coverage data.');
         rawPre.textContent = JSON.stringify(data, null, 2);
+        
+        // Generate JSON tree view
+        var treeContainer = document.querySelector('#coverage-raw .json-tree');
+        if (treeContainer) {
+          console.log('Generating JSON tree view.');
+          treeContainer.innerHTML = '';
+          renderJsonTree(data, treeContainer);
+        }
       }
     })
     .catch(function(err) {
@@ -418,6 +426,121 @@
         verboseMain.innerHTML = '<div style="text-align: center; padding: 40px;"><h2 style="color: #e53935; font-weight: bold; margin-bottom: 20px;">⚠️ Test Results Not Available</h2><p style="color: var(--text-secondary); font-size: 16px; margin-bottom: 15px;">Unable to load <code>verbose.txt</code>. This usually means OPA tests haven\'t been run with verbose output.</p><div style="background: var(--sq-card); padding: 20px; border-radius: 8px; margin: 20px 0;"><p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 10px;"><strong>To fix this, try running:</strong></p><code style="background: var(--sq-card); padding: 8px 12px; border-radius: 4px; display: block; color: var(--text-primary);">opa test policies/ tests/ test_data/ --verbose &gt; verbose.txt</code></div></div>';
       }
     });
+    
+  // --- JSON Tree rendering function ---
+  function renderJsonTree(obj, container, key, level) {
+    level = level || 0;
+    
+    function createNode(value, key, level) {
+      var nodeDiv = document.createElement('div');
+      nodeDiv.className = 'json-node';
+      
+      var isObject = typeof value === 'object' && value !== null;
+      var isArray = Array.isArray(value);
+      var hasChildren = isObject && Object.keys(value).length > 0;
+      
+      var line = document.createElement('div');
+      line.style.display = 'flex';
+      line.style.alignItems = 'center';
+      
+      if (hasChildren) {
+        var toggle = document.createElement('button');
+        toggle.className = 'json-toggle';
+        toggle.textContent = '▼';
+        toggle.type = 'button';
+        line.appendChild(toggle);
+      } else {
+        var spacer = document.createElement('span');
+        spacer.style.width = '16px';
+        spacer.style.display = 'inline-block';
+        line.appendChild(spacer);
+      }
+      
+      if (key !== undefined) {
+        var keySpan = document.createElement('span');
+        keySpan.className = 'json-key';
+        keySpan.textContent = '"' + key + '": ';
+        line.appendChild(keySpan);
+      }
+      
+      var valueSpan = document.createElement('span');
+      
+      if (isArray) {
+        valueSpan.textContent = '[';
+        if (hasChildren) {
+          var count = document.createElement('span');
+          count.className = 'json-count';
+          count.textContent = ' // ' + value.length + ' items';
+          line.appendChild(valueSpan);
+          line.appendChild(count);
+        } else {
+          valueSpan.textContent = '[]';
+          line.appendChild(valueSpan);
+        }
+      } else if (isObject) {
+        valueSpan.textContent = '{';
+        if (hasChildren) {
+          var count = document.createElement('span');
+          count.className = 'json-count';
+          count.textContent = ' // ' + Object.keys(value).length + ' properties';
+          line.appendChild(valueSpan);
+          line.appendChild(count);
+        } else {
+          valueSpan.textContent = '{}';
+          line.appendChild(valueSpan);
+        }
+      } else if (typeof value === 'string') {
+        valueSpan.className = 'json-string';
+        valueSpan.textContent = '"' + value + '"';
+        line.appendChild(valueSpan);
+      } else if (typeof value === 'number') {
+        valueSpan.className = 'json-number';
+        valueSpan.textContent = value;
+        line.appendChild(valueSpan);
+      } else if (typeof value === 'boolean') {
+        valueSpan.className = 'json-boolean';
+        valueSpan.textContent = value;
+        line.appendChild(valueSpan);
+      } else if (value === null) {
+        valueSpan.className = 'json-null';
+        valueSpan.textContent = 'null';
+        line.appendChild(valueSpan);
+      }
+      
+      nodeDiv.appendChild(line);
+      
+      if (hasChildren) {
+        var childrenDiv = document.createElement('div');
+        childrenDiv.className = 'json-children';
+        
+        if (isArray) {
+          value.forEach(function(item, index) {
+            var childNode = createNode(item, index, level + 1);
+            childrenDiv.appendChild(childNode);
+          });
+        } else {
+          Object.keys(value).forEach(function(childKey) {
+            var childNode = createNode(value[childKey], childKey, level + 1);
+            childrenDiv.appendChild(childNode);
+          });
+        }
+        
+        var closingLine = document.createElement('div');
+        closingLine.style.marginLeft = '16px';
+        var closingSpan = document.createElement('span');
+        closingSpan.textContent = isArray ? ']' : '}';
+        closingLine.appendChild(closingSpan);
+        childrenDiv.appendChild(closingLine);
+        
+        nodeDiv.appendChild(childrenDiv);
+      }
+      
+      return nodeDiv;
+    }
+    
+    var rootNode = createNode(obj, key, level);
+    container.appendChild(rootNode);
+  }
     
   console.log('Report generation initialization complete.');
   });
@@ -635,6 +758,42 @@
 
       // Use event delegation to handle dynamically created content
       document.addEventListener('click', function(e) {
+        // Handle JSON tree toggle functionality
+        if (e.target.classList.contains('json-toggle')) {
+          e.preventDefault();
+          e.stopPropagation();
+          var toggle = e.target;
+          var nodeDiv = toggle.closest('.json-node');
+          if (nodeDiv) {
+            nodeDiv.classList.toggle('collapsed');
+            toggle.textContent = nodeDiv.classList.contains('collapsed') ? '▶' : '▼';
+          }
+        }
+
+        // Handle tab functionality
+        if (e.target.classList.contains('tab-btn')) {
+          var tabBtn = e.target;
+          var tabName = tabBtn.getAttribute('data-tab');
+          var tabsContainer = tabBtn.closest('.tabs-container');
+          
+          if (tabsContainer) {
+            // Remove active class from all tabs and content
+            tabsContainer.querySelectorAll('.tab-btn').forEach(function(btn) {
+              btn.classList.remove('active');
+            });
+            tabsContainer.querySelectorAll('.tab-content').forEach(function(content) {
+              content.classList.remove('active');
+            });
+            
+            // Add active class to clicked tab and corresponding content
+            tabBtn.classList.add('active');
+            var targetContent = tabsContainer.querySelector('#tab-' + tabName);
+            if (targetContent) {
+              targetContent.classList.add('active');
+            }
+          }
+        }
+
         // Handle details toggle clicks manually to ensure icon updates
         if (e.target.closest('summary')) {
           var summary = e.target.closest('summary');
@@ -1454,6 +1613,134 @@
       border-top-color: rgba(0, 0, 0, 0.9);
     }
 
+    /* Tab styles */
+    .tabs-container {
+      margin-top: 10px;
+    }
+    
+    .tabs-header {
+      display: flex;
+      border-bottom: 1px solid var(--sq-border);
+      margin-bottom: 0;
+    }
+    
+    .tab-btn {
+      background: none;
+      border: none;
+      padding: 8px 16px;
+      cursor: pointer;
+      font-family: var(--sq-font);
+      font-size: 13px;
+      color: var(--text-secondary);
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s ease;
+    }
+    
+    .tab-btn:hover {
+      background: var(--sq-table-header);
+      color: var(--text-primary);
+    }
+    
+    .tab-btn.active {
+      color: var(--sq-primary);
+      border-bottom-color: var(--sq-primary);
+      background: var(--sq-card);
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    .tab-content pre {
+      margin-top: 0;
+    }
+    
+    /* JSON Tree styles */
+    .json-tree {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.45;
+      background: var(--sq-card);
+      border: 1px solid var(--sq-border);
+      border-radius: 4px;
+      padding: 10px 12px;
+      overflow-x: auto;
+    }
+    
+    .json-node {
+      margin-left: 0;
+    }
+    
+    .json-node.collapsed > .json-children {
+      display: none;
+    }
+    
+    .json-children {
+      margin-left: 20px;
+      border-left: 1px solid var(--sq-border);
+      padding-left: 10px;
+    }
+    
+    .json-key {
+      color: var(--sq-primary);
+      font-weight: 500;
+    }
+    
+    .json-string {
+      color: #22863a;
+    }
+    
+    .json-number {
+      color: #6f42c1;
+    }
+    
+    .json-boolean {
+      color: #e36209;
+    }
+    
+    .json-null {
+      color: var(--sq-muted);
+    }
+    
+    .json-toggle {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: monospace;
+      color: var(--text-secondary);
+      margin-right: 4px;
+      font-size: 11px;
+      width: 12px;
+      text-align: center;
+    }
+    
+    .json-toggle:hover {
+      color: var(--text-primary);
+    }
+    
+    .json-count {
+      color: var(--sq-muted);
+      font-size: 12px;
+      margin-left: 4px;
+    }
+
+    /* Dark theme adjustments for JSON tree */
+    [data-theme="dark"] .json-string {
+      color: #9ecbff;
+    }
+    
+    [data-theme="dark"] .json-number {
+      color: #b392f0;
+    }
+    
+    [data-theme="dark"] .json-boolean {
+      color: #ffab70;
+    }
+
 </style>
 </head>
 <body>
@@ -1582,7 +1869,18 @@
           </button>
         </summary>
         <div class="expandable-content">
-          <pre></pre>
+          <div class="tabs-container">
+            <div class="tabs-header">
+              <button class="tab-btn active" data-tab="src">📄 src</button>
+              <button class="tab-btn" data-tab="tree">🌳 tree</button>
+            </div>
+            <div class="tab-content active" id="tab-src">
+              <pre></pre>
+            </div>
+            <div class="tab-content" id="tab-tree">
+              <div class="json-tree"></div>
+            </div>
+          </div>
         </div>
       </details>
     </div>
